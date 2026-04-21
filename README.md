@@ -1,292 +1,222 @@
-# 🌱 Bhoomise – Smart Agri-Commerce & Inventory Platform
+# 🌱 Bhoomise – Flutter Clean Architecture (GetX) + Laravel + MySQL
 
 ## 📌 Overview
 
-**Bhoomise** is a scalable, real-time, multi-role Flutter application designed to streamline agricultural commerce and inventory management for mushrooms and organic products.
+Bhoomise is a scalable Flutter application built using **GetX + Clean Architecture** with **Laravel API + MySQL** as the primary backend.
 
-The platform connects **Customers, Stores (Retailers), and Admin (Suppliers)** into a unified ecosystem with:
+The app is structured to keep:
 
-- ⚡ Real-time inventory tracking  
-- 🧠 Intelligent order routing  
-- 🛒 Guest-first shopping experience  
-- 🔗 Deep linking support  
-- 🔐 Role-based access control  
+* **Presentation Layer** clean (UI only)
+* **Domain Layer** pure (business logic)
+* **Data Layer** responsible for API + models
 
 ---
 
-## 🎯 Problem Statement
+## 🏗️ Tech Stack
 
-Traditional agri-commerce systems suffer from:
+### Frontend
 
-- ❌ No real-time stock visibility  
-- ❌ Frequent stock-outs  
-- ❌ Disconnected offline and online sales  
-- ❌ Manual supply chain coordination  
-- ❌ Poor customer experience  
+* Flutter
+* GetX
+* Clean Architecture
+* Dio (API client)
+* SharedPreferences / Secure Storage
+
+### Backend
+
+* PHP Laravel
+* MySQL
+* Laravel Sanctum / JWT
+* REST API
 
 ---
 
-## 💡 Solution
+## 🎯 Core Principles
 
-Bhoomise provides a **centralized product + distributed inventory system**:
-
-- 📦 Real-time inventory sync  
-- 🛒 Seamless guest browsing (no login required)  
-- 🔄 Live order tracking with ETA  
-- 🔗 Deep linking for campaigns and navigation  
-- 🧠 Backend-driven order assignment  
+* UI never calls APIs directly.
+* Controllers use UseCases only.
+* Domain layer has no Flutter / Dio imports.
+* Data layer handles API responses and mapping.
+* App remains scalable and maintainable.
 
 ---
 
 ## 👥 User Roles
 
-### 🛒 Customer (Guest + Logged-in)
+### Customer
 
-- Browse products without login  
-- Add products/variants to cart  
-- Apply coupons  
-- Login only at checkout (OTP-based)  
-- Track orders in real-time  
+* Guest browsing
+* Add to cart
+* OTP/Login at checkout
+* Track orders
 
----
+### Store / Retailer
 
-### 🏪 Store / Retailer (Vendor)
+* Manage inventory
+* Low stock alerts
+* Assigned orders
 
-- Manage inventory (variant-wise)  
-- Update stock after offline sales  
-- Receive low-stock alerts  
-- Handle assigned orders  
-- ❌ Cannot create products  
+### Admin / Supplier
 
----
-
-### 👑 Admin (Supplier)
-
-- Create and manage master products  
-- Upload product images  
-- Define product variants (200g, 500g, 1kg)  
-- Approve vendor products  
-- Monitor inventory & orders  
-- Manage coupons  
+* Manage products
+* Manage variants
+* Upload images
+* Coupons
+* Reports & control panel
 
 ---
 
-## ⚙️ Key Features
+## 🔄 Architecture Flow
 
-### 📦 Inventory Management
-
-- Real-time updates  
-- Variant-based tracking  
-- Low-stock alerts  
+```text
+Presentation → Domain ← Data
+```
 
 ---
 
-### 🛒 E-commerce System
+## 📂 Project Structure
 
-- Admin-controlled product catalog  
-- Multi-variant support  
-- Dynamic pricing  
-- Guest-first UX  
-
----
-
-### 🧺 Cart System
-
-- Multi-product + multi-variant support  
-- Local storage (guest cart)  
-- Sync after login  
-
-**Example:**
-
-- Mushroom 200g × 2  
-- Mushroom 500g × 1  
-
----
-
-### 🎟️ Coupon System
-
-- Apply coupon at checkout  
-- Real-time validation  
-- Dynamic discount calculation  
-
----
-
-### 🚚 Order & Delivery
-
-- B2C (Customer delivery)  
-- B2B (Store supply)  
-- Smart backend order routing  
-
----
-
-### 📍 Real-Time Order Tracking
-
-Status Flow:
-
-Placed → Preparing → Packed → Out for Delivery → Delivered  
-
-- ETA countdown  
-- Live updates  
+```text
+lib/
+│── app/
+│   ├── routes/
+│   ├── theme/
+│   ├── bindings/
+│   └── app.dart
+│
+│── core/
+│   ├── api/
+│   │   ├── api_client.dart
+│   │   ├── api_endpoints.dart
+│   │   └── dio_provider.dart
+│   │
+│   ├── error/
+│   │   ├── exceptions.dart
+│   │   └── failures.dart
+│   │
+│   ├── helpers/
+│   │   ├── storage_helper.dart
+│   │   ├── session_helper.dart
+│   │   └── validators.dart
+│   │
+│   ├── widgets/
+│   └── values/
+│       ├── colors.dart
+│       ├── strings.dart
+│       └── constants.dart
+│
+│── features/
+│   ├── auth/
+│   ├── home/
+│   ├── product/
+│   ├── cart/
+│   ├── order/
+│   ├── profile/
+│   ├── address/
+│   ├── splash/
+│   └── navigation/
+│
+│── main.dart
+```
 
 ---
 
-### 🔔 Notifications
+## 📦 Feature Structure Example
 
-- Order updates  
-- Low stock alerts  
-- Promotional campaigns  
-
----
-
-### 🔗 Deep Linking
-
-- `myapp://product/{id}`  
-- `myapp://order/{id}`  
-- `myapp://coupon/{code}`  
-
-Supports:
-- Cold start  
-- Background navigation  
-- Login redirection  
-
----
-
-## 🏪 Inventory & Product Model
-
-### 🎯 Core Rule
-
-Product = Admin  
-Inventory = Store  
-Purchase = Backend Controlled  
+```text
+features/auth/
+│── data/
+│   ├── models/
+│   ├── datasource/
+│   └── repositories_impl/
+│
+│── domain/
+│   ├── entities/
+│   ├── repositories/
+│   └── usecases/
+│
+│── presentation/
+│   ├── controller/
+│   ├── pages/
+│   ├── widgets/
+│   └── binding/
+```
 
 ---
 
-### 📦 Master Products (Admin)
+## 🔐 Authentication
 
-- Name  
-- Image  
-- Category  
-- Variants  
+Handled via Laravel backend:
 
----
+* Phone OTP
+  n- Email Login
+* Sanctum / JWT Token
 
-### 🏪 Store Inventory
+Store token using:
 
-- Linked to master product  
-- Variant-wise stock  
-- Price per variant  
+* SharedPreferences
+* Flutter Secure Storage
 
 ---
 
-### 🛒 Purchase Flow
+## 🌐 API Rules
 
-1. User browses (Guest Mode)  
-2. Adds to cart  
-3. Checkout → Login required  
-4. Backend validates stock  
-5. Order assigned to store/admin  
-6. Real-time tracking starts  
+* All APIs inside `core/api/`
+* Use Dio interceptors for tokens
+* Handle errors globally
+* No API logic inside UI
 
 ---
 
-## 🧱 Tech Stack
+## 🧠 Common Use Cases
 
-### 📱 Frontend
-
-- Flutter (Android, iOS)  
-- GetX (State + Routing + Dependency Injection)  
-- Clean Architecture  
-
----
-
-### 🔥 Backend
-
-- Firebase:
-  - Authentication (OTP)  
-  - Firestore (Real-time Database)  
-  - Storage (Images)  
+* LoginUser
+* RegisterUser
+* GetProducts
+* GetProductDetails
+* AddToCart
+* ApplyCoupon
+* CreateOrder
+* GetOrders
+* UpdateProfile
 
 ---
 
-### ⚙️ Optional Backend (Scaling)
+## 🔗 Deep Links
 
-- Node.js + MongoDB  
-
----
-
-## 🧠 Architecture Highlights
-
-- Clean Architecture (Presentation + Domain + Data)  
-- Feature-based modular structure  
-- Real-time Firestore streams  
-- Guest-first UX  
-- Role-based navigation  
+```text
+myapp://product/5
+myapp://order/88
+myapp://coupon/SAVE50
+```
 
 ---
 
-## 🎨 Design reference
+## 🚀 Goals
 
-- **Figma** (Customer Home and shells): [Bhoomise Storefront file](https://www.figma.com/design/kWtQ8RReUVoZ7BoABTOe3q/) — implement with shared tokens in `lib/core/theme/design_tokens.dart` and `.cursor/rules/code-converstion-rule.mdc`.
-
----
-
-## 📦 Product Structure
-
-Product: Mushroom  
-
-Variants:  
-- 200g → price, stock  
-- 500g → price, stock  
-- 1kg → price, stock  
+* Production Ready
+* Scalable Codebase
+* Team Friendly
+* Easy Testing
+* Fast Development
+* Laravel Ready Backend
 
 ---
 
-## 🔄 Data Flow
+## 💎 Recommended Setup
 
-Flutter App → GetX → Firebase / API → Database  
+### Flutter Packages
 
----
-
-## 🔐 Security
-
-- Role-based access control  
-- Vendor restricted to own data  
-- Admin full access  
-- Firestore security rules  
-
----
-
-## 🚀 Scalability Vision
-
-- Multi-vendor marketplace  
-- Hyperlocal delivery  
-- AI-based demand prediction  
-- Smart logistics system  
-
----
-
-## 🔮 Future Enhancements
-
-- AI stock prediction  
-- Smart reorder suggestions  
-- Live delivery tracking (maps)  
-- Analytics dashboard  
-- Multi-language support  
-
----
-
-## 🌍 Vision
-
-To build a scalable agri-tech ecosystem that digitizes supply chains and empowers farmers, retailers, and consumers.
+```yaml
+dependencies:
+  get:
+  dio:
+  shared_preferences:
+  flutter_secure_storage:
+```
 
 ---
 
 ## 👨‍💻 Author
 
-**Aditya Pal**
-
----
-
-## ⭐ Contribution
-
-Feel free to fork, contribute, and improve Bhoomise 🚀# bhoomise-customer-app
+Bhoomise Tech
