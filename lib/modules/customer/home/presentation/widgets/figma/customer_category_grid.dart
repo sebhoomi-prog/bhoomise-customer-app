@@ -1,57 +1,56 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../navigation/customer_shell_navigation.dart';
+import '../../../../../../bloc/home/index.dart';
 import '../../../../../../core/theme/design_tokens.dart';
 import '../../../../../../core/theme/figma_typography.dart';
 import '../../../../../../core/util/unsplash_raster_url.dart';
-import '../../controllers/home_controller.dart';
 import '../../../domain/customer_home_category.dart';
 
 /// 2×2 category tiles — `#EFF4FF`, 48px radius; data from Firestore (`app/customer_home`).
-class CustomerCategoryGrid extends GetView<HomeController> {
+class CustomerCategoryGrid extends StatelessWidget {
   const CustomerCategoryGrid({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      final items = controller.homeCategories;
-      if (items.isEmpty) {
-        return SizedBox(
-          height: 120,
-          child: Center(
-            child: CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        );
-      }
-      return GridView.count(
-        crossAxisCount: 2,
-        mainAxisSpacing: DesignTokens.spaceMd,
-        crossAxisSpacing: DesignTokens.spaceMd,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        // Slightly taller tiles so title/subtitle + image never clip on small phones.
-        childAspectRatio: 0.82,
-        children: items
-            .map(
-              (c) => _CustomerCategoryCard(
-                item: c,
-                onTap: CustomerShellNavigation.goSearch,
+    return BlocBuilder<HomeBloc, HomeBlocState>(
+      builder: (context, state) {
+        final items = state.categoriesOrDefault;
+        if (items.isEmpty) {
+          return SizedBox(
+            height: 120,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
               ),
-            )
-            .toList(),
-      );
-    });
+            ),
+          );
+        }
+        return GridView.count(
+          crossAxisCount: 2,
+          mainAxisSpacing: DesignTokens.spaceMd,
+          crossAxisSpacing: DesignTokens.spaceMd,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          // Slightly taller tiles so title/subtitle + image never clip on small phones.
+          childAspectRatio: 0.82,
+          children: items
+              .map(
+                (c) => _CustomerCategoryCard(
+                  item: c,
+                  onTap: CustomerShellNavigation.goSearch,
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
   }
 }
 
 class _CustomerCategoryCard extends StatelessWidget {
-  const _CustomerCategoryCard({
-    required this.item,
-    required this.onTap,
-  });
+  const _CustomerCategoryCard({required this.item, required this.onTap});
 
   final CustomerHomeCategory item;
   final VoidCallback onTap;
@@ -112,10 +111,10 @@ class _CustomerCategoryCard extends StatelessWidget {
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: variant,
-                          height: 1.35,
-                          fontSize: 11,
-                        ),
+                      color: variant,
+                      height: 1.35,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -132,7 +131,9 @@ class _CustomerCategoryCard extends StatelessWidget {
                   filterQuality: FilterQuality.high,
                   gaplessPlayback: true,
                   errorBuilder: (_, __, ___) => ColoredBox(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     child: Icon(
                       Icons.image_not_supported_outlined,
                       color: Theme.of(context).colorScheme.outline,

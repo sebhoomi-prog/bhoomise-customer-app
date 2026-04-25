@@ -1,9 +1,9 @@
 import 'package:get/get.dart';
 
+import '../../../../bloc/cart/index.dart';
 import '../data/coupon_catalog_service.dart';
 import '../domain/coupon_offer.dart';
 import '../domain/pack_coupon_evaluator.dart';
-import 'controllers/cart_controller.dart';
 
 /// Shared validation for typed codes (cart page + browse coupons screen).
 class ApplyCouponOutcome {
@@ -25,7 +25,7 @@ class ApplyCouponOutcome {
 }
 
 Future<ApplyCouponOutcome> applyCouponCodeToCart({
-  required CartController cart,
+  required CartBlocState cart,
   required String rawCode,
   CouponCatalogService? catalog,
 }) async {

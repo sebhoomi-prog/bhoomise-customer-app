@@ -1,6 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../config/backend_config.dart';
+import '../constants/app_constants.dart';
 import '../../modules/customer/cart/domain/entities/cart_line.dart';
 
 /// Hive-backed local persistence: cart lines + dirty flag for remote sync.

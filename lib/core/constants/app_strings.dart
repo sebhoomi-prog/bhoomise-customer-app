@@ -109,6 +109,7 @@ class AppStrings {
   static const signIn = 'Sign in';
   static const signUp = 'Sign up';
   static const signOut = 'Sign out';
+  static const signInToContinue = 'Please sign in to continue.';
   static const account = 'Account';
   static const savedAddresses = 'Saved addresses';
   static const savedAddressesCardSubtitle =
@@ -239,17 +240,4 @@ class AppStrings {
   static const homeCartTileSubtitle = 'Review items & totals';
   static const homeAddressesSubtitle =
       'Home, work & other spots for delivery';
-
-  /// Partner hub (store / admin prototypes)
-  static const partnerHubTitle = 'Partner hub';
-  static const partnerHubSubtitle =
-      'Inventory, quick sale, and supply — role-based tools';
-  static const storeInventoryTitle = 'Inventory dashboard';
-  static const storeInventorySubtitle = 'Stock by variant · low / out alerts';
-  static const quickSaleTitle = 'Quick sale & sync';
-  static const quickSaleSubtitle = 'Log offline sales · push to central stock';
-  static const adminSupplyTitle = 'Global supply';
-  static const adminSupplySubtitle = 'All stores · fill rate & alerts';
-  static const supplyOrdersTitle = 'Supply orders';
-  static const supplyOrdersSubtitle = 'B2B replenishment to stores';
 }

@@ -13,6 +13,7 @@ class OtpVerificationFigmaBody extends StatelessWidget {
   const OtpVerificationFigmaBody({
     super.key,
     required this.displayPhone,
+    this.debugOtp,
     required this.controllers,
     required this.focusNodes,
     required this.onDigitChanged,
@@ -27,6 +28,7 @@ class OtpVerificationFigmaBody extends StatelessWidget {
   });
 
   final String displayPhone;
+  final String? debugOtp;
   final List<TextEditingController> controllers;
   final List<FocusNode> focusNodes;
   final void Function(int index, String value) onDigitChanged;
@@ -78,6 +80,7 @@ class OtpVerificationFigmaBody extends StatelessWidget {
               children: [
                 _OtpCard(
                   displayPhone: displayPhone,
+                  debugOtp: debugOtp,
                   controllers: controllers,
                   focusNodes: focusNodes,
                   onDigitChanged: onDigitChanged,
@@ -104,6 +107,7 @@ class OtpVerificationFigmaBody extends StatelessWidget {
 class _OtpCard extends StatelessWidget {
   const _OtpCard({
     required this.displayPhone,
+    this.debugOtp,
     required this.controllers,
     required this.focusNodes,
     required this.onDigitChanged,
@@ -116,6 +120,7 @@ class _OtpCard extends StatelessWidget {
   });
 
   final String displayPhone;
+  final String? debugOtp;
   final List<TextEditingController> controllers;
   final List<FocusNode> focusNodes;
   final void Function(int index, String value) onDigitChanged;
@@ -189,6 +194,22 @@ class _OtpCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (debugOtp != null && debugOtp!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Opacity(
+                      opacity: 0.75,
+                      child: Text(
+                        'Debug OTP: ${debugOtp!.trim()}',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.robotoMono(
+                          fontSize: 12,
+                          height: 18 / 12,
+                          fontWeight: FontWeight.w700,
+                          color: DesignTokens.figmaStoreMeta,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 40),

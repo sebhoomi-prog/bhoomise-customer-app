@@ -9,7 +9,6 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/theme/figma_typography.dart';
 import '../../../../core/widgets/section_header.dart';
-import 'controllers/home_controller.dart';
 import 'widgets/figma/customer_category_grid.dart';
 import 'widgets/figma/customer_fresh_arrivals.dart';
 import 'widgets/figma/customer_hero_carousel.dart';
@@ -17,7 +16,7 @@ import 'widgets/figma/customer_home_header.dart';
 import 'widgets/figma/customer_search_pill.dart';
 
 /// Customer **Home** tab — Figma Customer Home (`9:3`) + frosted header (CSS export).
-class HomePage extends GetView<HomeController> {
+class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override

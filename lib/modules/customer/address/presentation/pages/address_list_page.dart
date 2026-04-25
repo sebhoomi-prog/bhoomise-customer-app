@@ -1,6 +1,7 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -9,15 +10,15 @@ import '../../../navigation/customer_shell_navigation.dart';
 import '../../../../../core/constants/app_strings.dart';
 import '../../../../../core/widgets/adaptive_back_button.dart';
 import '../../../../../core/theme/design_tokens.dart';
+import '../../../../../bloc/address/index.dart';
 import '../../domain/entities/delivery_address.dart';
-import '../controllers/address_list_controller.dart';
 
 const _kSlate = Color(0xFF555F6F);
 const _kWorkIconBg = Color(0xFFD6E0F3);
 const _kLogisticsBg = Color(0x33E5E3D0);
 
 /// Customer delivery address picker — Figma: bento cards, logistics snippet, CTA.
-class AddressListPage extends GetView<AddressListController> {
+class AddressListPage extends StatelessWidget {
   const AddressListPage({super.key});
 
   @override
@@ -27,75 +28,79 @@ class AddressListPage extends GetView<AddressListController> {
       body: Stack(
         clipBehavior: Clip.none,
         children: [
-          Obx(() {
-            if (controller.loading.value) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    DesignTokens.spaceLg,
-                    MediaQuery.paddingOf(context).top + 96,
-                    DesignTokens.spaceLg,
-                    MediaQuery.paddingOf(context).bottom + 140,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      Text(
-                        AppStrings.selectDeliveryAddress,
-                        style: GoogleFonts.manrope(
-                          fontSize: 36,
-                          height: 45 / 36,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.9,
-                          color: DesignTokens.figmaSectionInk,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        AppStrings.selectDeliverySubtitle,
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          height: 28 / 18,
-                          fontWeight: FontWeight.w400,
-                          color: _kSlate,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      if (controller.addresses.isEmpty)
-                        _EmptyAddressHint(onAdd: () => _openForm(context))
-                      else ...[
-                        ...controller.addresses.map(
-                          (a) => Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _AddressBentoCard(
-                              address: a,
-                              selected: controller.selectedDeliveryId.value == a.id,
-                              onSelect: () => controller.selectAddress(a),
-                              onEdit: () => Get.toNamed(
-                                AppRoutes.addressForm,
-                                arguments: a,
-                              ),
-                              onDelete: () => _confirmDelete(context, a),
-                            ),
+          BlocBuilder<AddressBloc, AddressBlocState>(
+            builder: (context, state) {
+              if (state.loading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              return CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      DesignTokens.spaceLg,
+                      MediaQuery.paddingOf(context).top + 96,
+                      DesignTokens.spaceLg,
+                      MediaQuery.paddingOf(context).bottom + 140,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        Text(
+                          AppStrings.selectDeliveryAddress,
+                          style: GoogleFonts.manrope(
+                            fontSize: 36,
+                            height: 45 / 36,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.9,
+                            color: DesignTokens.figmaSectionInk,
                           ),
                         ),
-                        _AddAddressDashedCard(
-                          onTap: () => _openForm(context),
+                        const SizedBox(height: 8),
+                        Text(
+                          AppStrings.selectDeliverySubtitle,
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            height: 28 / 18,
+                            fontWeight: FontWeight.w400,
+                            color: _kSlate,
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        const _LogisticsPurityCard(),
-                        const SizedBox(height: 16),
-                        const _MapDecorationStrip(),
-                      ],
-                    ]),
+                        const SizedBox(height: 32),
+                        if (state.addresses.isEmpty)
+                          _EmptyAddressHint(onAdd: () => _openForm(context))
+                        else ...[
+                          ...state.addresses.map(
+                            (a) => Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _AddressBentoCard(
+                                address: a,
+                                selected: state.selectedDeliveryId == a.id,
+                                onSelect: () => context.read<AddressBloc>().add(
+                                  AddressSelected(a),
+                                ),
+                                onEdit: () => Get.toNamed(
+                                  AppRoutes.addressForm,
+                                  arguments: a,
+                                ),
+                                onDelete: () => _confirmDelete(context, a),
+                              ),
+                            ),
+                          ),
+                          _AddAddressDashedCard(
+                            onTap: () => _openForm(context),
+                          ),
+                          const SizedBox(height: 16),
+                          const _LogisticsPurityCard(),
+                          const SizedBox(height: 16),
+                          const _MapDecorationStrip(),
+                        ],
+                      ]),
+                    ),
                   ),
-                ),
-              ],
-            );
-          }),
+                ],
+              );
+            },
+          ),
           const Positioned(
             top: 0,
             left: 0,
@@ -106,37 +111,39 @@ class AddressListPage extends GetView<AddressListController> {
             left: 0,
             right: 0,
             bottom: 0,
-            child: Obx(() {
-              final list = controller.addresses;
-              if (list.isEmpty) return const SizedBox.shrink();
-              final sel = controller.selectedDeliveryId.value;
-              DeliveryAddress? selected;
-              if (sel != null) {
-                for (final a in list) {
-                  if (a.id == sel) {
-                    selected = a;
-                    break;
+            child: BlocBuilder<AddressBloc, AddressBlocState>(
+              builder: (context, state) {
+                final list = state.addresses;
+                if (list.isEmpty) return const SizedBox.shrink();
+                final sel = state.selectedDeliveryId;
+                DeliveryAddress? selected;
+                if (sel != null) {
+                  for (final a in list) {
+                    if (a.id == sel) {
+                      selected = a;
+                      break;
+                    }
                   }
                 }
-              }
-              return _DeliverFooter(
-                enabled: selected != null,
-                onDeliver: () {
-                  if (selected == null) return;
-                  if (Navigator.of(context).canPop()) {
-                    Get.back(result: selected);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          '${AppStrings.deliverHerePlaceOrder}: ${selected.recipientName}',
+                return _DeliverFooter(
+                  enabled: selected != null,
+                  onDeliver: () {
+                    if (selected == null) return;
+                    if (Navigator.of(context).canPop()) {
+                      Get.back(result: selected);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${AppStrings.deliverHerePlaceOrder}: ${selected.recipientName}',
+                          ),
                         ),
-                      ),
-                    );
-                  }
-                },
-              );
-            }),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -165,7 +172,10 @@ class AddressListPage extends GetView<AddressListController> {
         ],
       ),
     );
-    if (ok == true) await controller.delete(a);
+    if (ok == true) {
+      if (!context.mounted) return;
+      context.read<AddressBloc>().add(AddressDeleteRequested(a));
+    }
   }
 }
 
@@ -261,8 +271,7 @@ class _AddressBentoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = selected;
-    final phoneColor =
-        active ? DesignTokens.figmaHeroCtaGreen : _kSlate;
+    final phoneColor = active ? DesignTokens.figmaHeroCtaGreen : _kSlate;
     final phoneWeight = active ? FontWeight.w500 : FontWeight.w500;
 
     return Material(
@@ -327,10 +336,11 @@ class _AddressBentoCard extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: active
-                                    ? DesignTokens.figmaAccentLime
-                                        .withValues(alpha: 0.3)
+                                    ? DesignTokens.figmaAccentLime.withValues(
+                                        alpha: 0.3,
+                                      )
                                     : DesignTokens.figmaSearchBarFill
-                                        .withValues(alpha: 0.3),
+                                          .withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
@@ -437,8 +447,9 @@ class _AddressBentoCard extends StatelessWidget {
   }
 
   String _addressBlock(DeliveryAddress a) {
-    final line2 =
-        (a.line2 != null && a.line2!.trim().isNotEmpty) ? '${a.line2!}, ' : '';
+    final line2 = (a.line2 != null && a.line2!.trim().isNotEmpty)
+        ? '${a.line2!}, '
+        : '';
     return '${a.line1}, $line2${a.city}, ${a.state} ${a.pincode}';
   }
 
@@ -463,10 +474,7 @@ class _RadioDot extends StatelessWidget {
       height: 24,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: const Color(0xFFBDCABA),
-          width: 2,
-        ),
+        border: Border.all(color: const Color(0xFFBDCABA), width: 2),
       ),
       alignment: Alignment.center,
       child: selected
@@ -630,9 +638,7 @@ class _LogisticsPurityCard extends StatelessWidget {
                   Container(color: DesignTokens.figmaSearchBarFill),
                   FractionallySizedBox(
                     widthFactor: 0.98,
-                    child: Container(
-                      color: DesignTokens.figmaHeroCtaGreen,
-                    ),
+                    child: Container(color: DesignTokens.figmaHeroCtaGreen),
                   ),
                 ],
               ),
@@ -678,7 +684,9 @@ class _MapDecorationStrip extends StatelessWidget {
                   child: Icon(
                     Icons.map_outlined,
                     size: 48,
-                    color: DesignTokens.figmaHeroCtaGreen.withValues(alpha: 0.35),
+                    color: DesignTokens.figmaHeroCtaGreen.withValues(
+                      alpha: 0.35,
+                    ),
                   ),
                 ),
               ),
@@ -694,10 +702,7 @@ class _MapDecorationStrip extends StatelessWidget {
 }
 
 class _DeliverFooter extends StatelessWidget {
-  const _DeliverFooter({
-    required this.enabled,
-    required this.onDeliver,
-  });
+  const _DeliverFooter({required this.enabled, required this.onDeliver});
 
   final bool enabled;
   final VoidCallback onDeliver;

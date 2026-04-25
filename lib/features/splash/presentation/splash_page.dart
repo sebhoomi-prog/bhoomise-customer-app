@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../core/session/phone_otp_route_persistence.dart';
-import '../../../core/session/app_session_service.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/design_tokens.dart';
@@ -25,12 +24,20 @@ class _SplashPageState extends State<SplashPage> {
   @override
   void initState() {
     super.initState();
-    scheduleMicrotask(() async {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_bootstrap());
+    });
+  }
+
+  Future<void> _bootstrap() async {
+    try {
       final auth = Get.find<AuthController>();
       final prefs = Get.find<SharedPreferences>();
+
       await Future.wait<void>([
         Future<void>.delayed(const Duration(milliseconds: 1600)),
-        auth.waitForInitialAuth(),
+        auth.waitForInitialAuth().timeout(const Duration(seconds: 3)),
       ]);
       if (!mounted) return;
 
@@ -47,7 +54,7 @@ class _SplashPageState extends State<SplashPage> {
         return;
       }
 
-      // Guest-first (see `.cursor/config/project-config`): browse without login; OTP at checkout.
+      // Guest-first: browse without login; OTP at checkout.
       if (!loggedIn) {
         Get.offAllNamed(AppRoutes.home);
         return;
@@ -59,14 +66,16 @@ class _SplashPageState extends State<SplashPage> {
         if (dest == PostAuthDestination.completeProfile) {
           Get.offAllNamed(AppRoutes.signupProfile);
         } else {
-          final session = Get.find<AppSessionService>();
-          Get.offAllNamed(session.mainShellRouteAfterAuth);
+          Get.offAllNamed(AppRoutes.home);
         }
-      } on Object catch (_) {
-        final session = Get.find<AppSessionService>();
-        Get.offAllNamed(session.mainShellRouteAfterAuth);
+      } on Object {
+        Get.offAllNamed(AppRoutes.home);
       }
-    });
+    } on Object {
+      // Never keep users stuck on splash: fall back to guest home.
+      if (!mounted) return;
+      Get.offAllNamed(AppRoutes.home);
+    }
   }
 
   @override

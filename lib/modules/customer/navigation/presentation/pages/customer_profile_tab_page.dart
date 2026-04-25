@@ -1,18 +1,18 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../app/routes/app_routes.dart';
+import '../../../../../bloc/cart/index.dart';
+import '../../../../../bloc/profile/index.dart';
 import '../../../../../core/constants/app_strings.dart';
 import '../../../../../core/theme/design_tokens.dart';
 import '../../../../../core/widgets/adaptive_back_button.dart';
-import '../../../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../../../../features/profile/domain/entities/user_profile.dart';
 import '../../../../../features/auth/domain/entities/auth_user.dart';
-import '../../../cart/presentation/controllers/cart_controller.dart';
-import '../../../home/presentation/controllers/home_controller.dart';
 
 const Color _kGreen = Color(0xFF006B2C);
 const Color _kGreenAlt = Color(0xFF00873A);
@@ -47,41 +47,49 @@ class CustomerProfileTabPage extends StatelessWidget {
         children: [
           ColoredBox(
             color: Theme.of(context).colorScheme.surface,
-            child: Obx(() {
-              Get.find<AuthController>().currentUser.value;
-              Get.find<CartController>().cartVersion.value;
-              return SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(24, scrollTop, 24, bottomPad),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _IdentityBlock(
-                      avatarUrl: _kAvatarUrl,
-                      kGreen: _kGreen,
-                      kGreenAlt: _kGreenAlt,
-                      kInk: _kInk,
-                      kMeta: _kMeta,
-                      kAvatarBorder: _kAvatarBorder,
-                    ),
-                    const SizedBox(height: 32),
-                    _QuickBentoGrid(
-                      kGreen: _kGreen,
-                      kInk: _kInk,
-                      kMeta: _kMeta,
-                    ),
-                    const SizedBox(height: 32),
-                    _AccountSettingsBlock(
-                      kGreen: _kGreen,
-                      kInk: _kInk,
-                      kRowIcon: _kRowIcon,
-                      kChevron: _kChevron,
-                    ),
-                    const SizedBox(height: 32),
-                    _LogoutSection(kLogoutBg: _kLogoutBg, kLogoutRed: _kLogoutRed),
-                  ],
-                ),
-              );
-            }),
+            child: BlocBuilder<ProfileBloc, ProfileBlocState>(
+              builder: (context, state) {
+                final user = state.uid == null
+                    ? null
+                    : AuthUser(uid: state.uid!, phoneNumber: state.phoneNumber);
+                return SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(24, scrollTop, 24, bottomPad),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _IdentityBlock(
+                        user: user,
+                        profile: state.profile,
+                        avatarUrl: _kAvatarUrl,
+                        kGreen: _kGreen,
+                        kGreenAlt: _kGreenAlt,
+                        kInk: _kInk,
+                        kMeta: _kMeta,
+                        kAvatarBorder: _kAvatarBorder,
+                      ),
+                      const SizedBox(height: 32),
+                      _QuickBentoGrid(
+                        kGreen: _kGreen,
+                        kInk: _kInk,
+                        kMeta: _kMeta,
+                      ),
+                      const SizedBox(height: 32),
+                      _AccountSettingsBlock(
+                        kGreen: _kGreen,
+                        kInk: _kInk,
+                        kRowIcon: _kRowIcon,
+                        kChevron: _kChevron,
+                      ),
+                      const SizedBox(height: 32),
+                      _LogoutSection(
+                        kLogoutBg: _kLogoutBg,
+                        kLogoutRed: _kLogoutRed,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
           Positioned(
             top: 0,
@@ -183,6 +191,8 @@ class _FigmaProfileHeader extends StatelessWidget {
 
 class _IdentityBlock extends StatelessWidget {
   const _IdentityBlock({
+    required this.user,
+    required this.profile,
     required this.avatarUrl,
     required this.kGreen,
     required this.kGreenAlt,
@@ -191,6 +201,8 @@ class _IdentityBlock extends StatelessWidget {
     required this.kAvatarBorder,
   });
 
+  final AuthUser? user;
+  final UserProfile? profile;
   final String avatarUrl;
   final Color kGreen;
   final Color kGreenAlt;
@@ -220,194 +232,191 @@ class _IdentityBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Get.find<AuthController>();
-    return Obx(() {
-      final user = auth.currentUser.value;
-      final profile = Get.isRegistered<HomeController>()
-          ? Get.find<HomeController>().profile.value
-          : null;
-      final name = user == null
-          ? 'Guest'
-          : (profile?.displayName.trim().isNotEmpty == true
+    final name = user == null
+        ? 'Guest'
+        : (profile?.displayName.trim().isNotEmpty == true
               ? profile!.displayName
               : 'Member');
-
-      return Column(
-        children: [
-          Center(
-            child: SizedBox(
-              width: 128,
-              height: 128,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 128,
-                    height: 128,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(48),
-                      border: Border.all(color: kAvatarBorder, width: 4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 25,
-                          offset: const Offset(0, 20),
-                        ),
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(44),
-                      child: user == null
-                          ? ColoredBox(
+    return Column(
+      children: [
+        Center(
+          child: SizedBox(
+            width: 128,
+            height: 128,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 128,
+                  height: 128,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(48),
+                    border: Border.all(color: kAvatarBorder, width: 4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 25,
+                        offset: const Offset(0, 20),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(44),
+                    child: user == null
+                        ? ColoredBox(
+                            color: kAvatarBorder,
+                            child: Icon(
+                              Icons.person_rounded,
+                              size: 56,
+                              color: kGreen.withValues(alpha: 0.5),
+                            ),
+                          )
+                        : Image.network(
+                            avatarUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => ColoredBox(
                               color: kAvatarBorder,
-                              child: Icon(
-                                Icons.person_rounded,
-                                size: 56,
-                                color: kGreen.withValues(alpha: 0.5),
-                              ),
-                            )
-                          : Image.network(
-                              avatarUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => ColoredBox(
-                                color: kAvatarBorder,
-                                child: Center(
-                                  child: Text(
-                                    name.isNotEmpty
-                                        ? name.substring(0, 1).toUpperCase()
-                                        : '?',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.w800,
-                                      color: kGreen,
-                                    ),
+                              child: Center(
+                                child: Text(
+                                  name.isNotEmpty
+                                      ? name.substring(0, 1).toUpperCase()
+                                      : '?',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.w800,
+                                    color: kGreen,
                                   ),
                                 ),
                               ),
                             ),
+                          ),
+                  ),
+                ),
+                if (user != null)
+                  Positioned(
+                    right: -8,
+                    bottom: -8,
+                    child: Container(
+                      width: 37,
+                      height: 37,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [kGreen, kGreenAlt],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(
+                          color: DesignTokens.figmaHeaderFrostTint,
+                          width: 4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 15,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.verified_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
-                  if (user != null)
-                    Positioned(
-                      right: -8,
-                      bottom: -8,
-                      child: Container(
-                        width: 37,
-                        height: 37,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [kGreen, kGreenAlt],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          border: Border.all(
-                            color: DesignTokens.figmaHeaderFrostTint,
-                            width: 4,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 15,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.verified_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          if (user != null)
-            Align(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => Get.toNamed(AppRoutes.profileEdit),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    child: Text(
-                      name,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.manrope(
-                        fontSize: 30,
-                        height: 36 / 30,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.75,
-                        color: kInk,
-                      ),
+        ),
+        const SizedBox(height: 16),
+        if (user != null)
+          Align(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => Get.toNamed(AppRoutes.profileEdit),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 8,
+                  ),
+                  child: Text(
+                    name,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.manrope(
+                      fontSize: 30,
+                      height: 36 / 30,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.75,
+                      color: kInk,
                     ),
                   ),
                 ),
               ),
-            )
-          else
-            Text(
-              name,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.manrope(
-                fontSize: 30,
-                height: 36 / 30,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.75,
-                color: kInk,
-              ),
             ),
-          const SizedBox(height: 4),
+          )
+        else
           Text(
-            user == null ? 'Sign in to sync orders & addresses' : _phoneLine(user, profile),
+            name,
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              height: 24 / 16,
-              fontWeight: FontWeight.w400,
-              color: kMeta,
+            style: GoogleFonts.manrope(
+              fontSize: 30,
+              height: 36 / 30,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.75,
+              color: kInk,
             ),
           ),
-          if (user != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: kGreen.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.eco_rounded, size: 12, color: kGreen),
-                  const SizedBox(width: 8),
-                  Text(
-                    'MEMBER SINCE OCT 2023',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      height: 15 / 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                      color: kGreen,
-                    ),
-                  ),
-                ],
-              ),
+        const SizedBox(height: 4),
+        Text(
+          user == null
+              ? 'Sign in to sync orders & addresses'
+              : _phoneLine(user, profile),
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            height: 24 / 16,
+            fontWeight: FontWeight.w400,
+            color: kMeta,
+          ),
+        ),
+        if (user != null) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: kGreen.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(999),
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.eco_rounded, size: 12, color: kGreen),
+                const SizedBox(width: 8),
+                Text(
+                  'MEMBER SINCE OCT 2023',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    height: 15 / 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1,
+                    color: kGreen,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-      );
-    });
+      ],
+    );
   }
 }
 
@@ -424,74 +433,76 @@ class _QuickBentoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cart = Get.find<CartController>();
-    return Obx(() {
-      final n = cart.lines.length;
-      final active = '$n ACTIVE';
-      return Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _BentoTile(
-                  icon: Icons.storefront_outlined,
-                  title: 'My Orders',
-                  subtitle: active,
-                  kGreen: kGreen,
-                  kInk: kInk,
-                  kMeta: kMeta,
-                  onTap: () => Get.toNamed(AppRoutes.orderTrack, arguments: 'SH-9921'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _BentoTile(
-                  icon: Icons.location_on_outlined,
-                  title: 'Addresses',
-                  subtitle: '2 SAVED',
-                  kGreen: kGreen,
-                  kInk: kInk,
-                  kMeta: kMeta,
-                  onTap: () => Get.toNamed(AppRoutes.addresses),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _BentoTile(
-                  icon: Icons.payments_outlined,
-                  title: 'Refunds',
-                  subtitle: 'NO PENDING',
-                  kGreen: kGreen,
-                  kInk: kInk,
-                  kMeta: kMeta,
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Refunds — coming soon')),
+    return BlocBuilder<CartBloc, CartBlocState>(
+      builder: (context, cart) {
+        final n = cart.lines.length;
+        final active = '$n ACTIVE';
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _BentoTile(
+                    icon: Icons.storefront_outlined,
+                    title: 'My Orders',
+                    subtitle: active,
+                    kGreen: kGreen,
+                    kInk: kInk,
+                    kMeta: kMeta,
+                    onTap: () =>
+                        Get.toNamed(AppRoutes.orderTrack, arguments: 'SH-9921'),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _BentoTile(
-                  icon: Icons.headset_mic_outlined,
-                  title: 'Support',
-                  subtitle: '24/7 CARE',
-                  kGreen: kGreen,
-                  kInk: kInk,
-                  kMeta: kMeta,
-                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Support — coming soon')),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _BentoTile(
+                    icon: Icons.location_on_outlined,
+                    title: 'Addresses',
+                    subtitle: '2 SAVED',
+                    kGreen: kGreen,
+                    kInk: kInk,
+                    kMeta: kMeta,
+                    onTap: () => Get.toNamed(AppRoutes.addresses),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
-      );
-    });
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _BentoTile(
+                    icon: Icons.payments_outlined,
+                    title: 'Refunds',
+                    subtitle: 'NO PENDING',
+                    kGreen: kGreen,
+                    kInk: kInk,
+                    kMeta: kMeta,
+                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Refunds — coming soon')),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _BentoTile(
+                    icon: Icons.headset_mic_outlined,
+                    title: 'Support',
+                    subtitle: '24/7 CARE',
+                    kGreen: kGreen,
+                    kInk: kInk,
+                    kMeta: kMeta,
+                    onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Support — coming soon')),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -760,65 +771,65 @@ class _SettingsRow extends StatelessWidget {
 }
 
 class _LogoutSection extends StatelessWidget {
-  const _LogoutSection({
-    required this.kLogoutBg,
-    required this.kLogoutRed,
-  });
+  const _LogoutSection({required this.kLogoutBg, required this.kLogoutRed});
 
   final Color kLogoutBg;
   final Color kLogoutRed;
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      final auth = Get.find<AuthController>();
-      final loggedIn = auth.currentUser.value != null;
-      if (!loggedIn) {
-        return FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: _kGreen,
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(32),
+    return BlocBuilder<ProfileBloc, ProfileBlocState>(
+      builder: (context, state) {
+        final loggedIn = state.uid != null;
+        if (!loggedIn) {
+          return FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: _kGreen,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(32),
+              ),
             ),
-          ),
-          onPressed: () => Get.toNamed(AppRoutes.login),
-          child: Text(
-            AppStrings.signIn,
-            style: GoogleFonts.manrope(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+            onPressed: () => Get.toNamed(AppRoutes.login),
+            child: Text(
+              AppStrings.signIn,
+              style: GoogleFonts.manrope(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          );
+        }
+        return Material(
+          color: kLogoutBg,
+          borderRadius: BorderRadius.circular(32),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(32),
+            onTap: () => context.read<ProfileBloc>().add(
+              const ProfileSignOutRequested(),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.logout_rounded, color: kLogoutRed, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    AppStrings.signOut,
+                    style: GoogleFonts.manrope(
+                      fontSize: 18,
+                      height: 28 / 18,
+                      fontWeight: FontWeight.w800,
+                      color: kLogoutRed,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
-      }
-      return Material(
-        color: kLogoutBg,
-        borderRadius: BorderRadius.circular(32),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(32),
-          onTap: () => auth.signOutUser(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.logout_rounded, color: kLogoutRed, size: 20),
-                const SizedBox(width: 12),
-                Text(
-                  AppStrings.signOut,
-                  style: GoogleFonts.manrope(
-                    fontSize: 18,
-                    height: 28 / 18,
-                    fontWeight: FontWeight.w800,
-                    color: kLogoutRed,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    });
+      },
+    );
   }
 }

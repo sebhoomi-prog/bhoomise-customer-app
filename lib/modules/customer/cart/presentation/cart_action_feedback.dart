@@ -4,9 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/theme/design_tokens.dart';
+import '../../../../bloc/cart/index.dart';
 import '../../product/domain/entities/product.dart';
 import '../../product/domain/entities/product_variant.dart';
-import 'controllers/cart_controller.dart';
 
 /// Snackbar + haptics so adds from home/search feel like a polished quick-commerce app.
 class CartActionFeedback {
@@ -23,7 +23,7 @@ class CartActionFeedback {
     BuildContext context, {
     required Product product,
     required ProductVariant variant,
-    required CartController cart,
+    required CartBlocState cart,
     required int delta,
   }) {
     if (!context.mounted) return;

@@ -1,24 +1,17 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../../../app/routes/app_routes.dart';
-import '../../../../core/session/app_role.dart';
-import '../../../../core/session/app_session_service.dart';
-import '../../../../core/session/phone_otp_route_persistence.dart';
-import '../../domain/repositories/auth_repository.dart';
+import '../../../../bloc/auth/index.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/theme/figma_typography.dart';
 import '../../data/login_ui_config.dart';
-import '../controllers/auth_controller.dart';
 import '../widgets/figma/play_integrity_login_notice.dart';
 import '../widgets/figma/figma_login_hero_block.dart';
 import '../widgets/figma/figma_login_legal_footer.dart';
 import '../widgets/figma/figma_login_phone_field.dart';
 import '../widgets/figma/figma_login_phone_split_field.dart';
 import '../widgets/figma/figma_login_primary_cta.dart';
-import '../widgets/figma/figma_login_role_segment.dart';
 import '../widgets/figma/figma_login_social_row.dart';
 import '../widgets/figma/figma_login_welcome_illustration.dart';
 
@@ -82,7 +75,6 @@ class _LoginFormBodyState extends State<_LoginFormBody> {
   final _phone = TextEditingController();
 
   late String _dialCode;
-  AppRole _loginRole = AppRole.customer;
 
   LoginUiConfig get cfg => widget.cfg;
 
@@ -119,46 +111,9 @@ class _LoginFormBodyState extends State<_LoginFormBody> {
     if (!_formKey.currentState!.validate()) return;
     final raw = _phone.text.replaceAll(RegExp(r'\D'), '');
     final e164 = _toE164(raw);
-    final auth = Get.find<AuthController>();
-    Get.find<AppSessionService>().setPendingRole(_loginRole);
-    final prefs = Get.find<SharedPreferences>();
-    try {
-      // Persist before reCAPTCHA WebView / activity recreate so Splash can open OTP
-      // if the engine restarts before [Get.offNamed](otp) runs.
-      await PhoneOtpRoutePersistence.markPending(
-        prefs,
-        phoneE164: e164,
-        intent: 'login',
-        role: _loginRole.name,
-      );
-      await auth.sendOtp(e164);
-      final repo = Get.find<AuthRepository>();
-      // Instant verification signs in without SMS UI — [AuthController] navigates away.
-      if (!repo.awaitingPhoneSmsCodeEntry) {
-        await PhoneOtpRoutePersistence.clear(prefs);
-        return;
-      }
-      // Do not gate on `mounted`: after reCAPTCHA / app switch the login widget may be
-      // disposed while verification still completes; GetX navigation is still valid.
-      // Replace login with OTP so the stack is shell → OTP (back returns to guest home).
-      await Get.offNamed(
-        AppRoutes.otp,
-        arguments: <String, dynamic>{
-          'phoneE164': e164,
-          'intent': 'login',
-          'role': _loginRole.name,
-        },
-      );
-    } on Object catch (_) {
-      await PhoneOtpRoutePersistence.clear(prefs);
-      if (!mounted) return;
-      final msg = auth.errorMessage.value;
-      if (msg != null && msg.isNotEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(msg)));
-      }
-    }
+    context.read<AuthBloc>().add(
+      AuthSendOtpRequested(phoneE164: e164),
+    );
   }
 
   void _soon(String label) {
@@ -167,54 +122,14 @@ class _LoginFormBodyState extends State<_LoginFormBody> {
     ).showSnackBar(SnackBar(content: Text('$label — coming soon')));
   }
 
-  void _selectVendorOrAdmin() {
-    setState(() => _loginRole = AppRole.partner);
-    Get.find<AppSessionService>().setPendingRole(AppRole.partner);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Vendor selected — enter your work number.'),
-      ),
-    );
-  }
-
-  /// Optional underline on a substring of [LoginUiConfig.vendorAdminCta] (e.g. `VENDOR`).
-  Widget _vendorAdminLine(Color textMuted) {
-    final base = FigmaTypography.labelCaps(textMuted, letterSpacing: 0.8)
-        .copyWith(fontSize: 11);
-    final em = cfg.vendorAdminUnderlineSubstring.trim();
-    final line = cfg.vendorAdminCta;
-    if (em.isEmpty) {
-      return Text(line, style: base, textAlign: TextAlign.center);
-    }
-    final idx = line.indexOf(em);
-    if (idx < 0) {
-      return Text(line, style: base, textAlign: TextAlign.center);
-    }
-    return Text.rich(
-      TextSpan(
-        style: base,
-        children: [
-          TextSpan(text: line.substring(0, idx)),
-          TextSpan(
-            text: em,
-            style: base.copyWith(decoration: TextDecoration.underline),
-          ),
-          TextSpan(text: line.substring(idx + em.length)),
-        ],
-      ),
-      textAlign: TextAlign.center,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final auth = Get.find<AuthController>();
+    final authBloc = context.read<AuthBloc>();
     final brand = _hex(cfg.brandPrimaryHex);
     final surface = _hex(cfg.surfaceHex);
     final textSecondary = _hex(cfg.textSecondaryHex);
     final textMuted = _hex(cfg.textMutedHex);
     final border = _hex(cfg.borderHex);
-    final segmentTrack = _hex(cfg.segmentTrackHex);
     final gradientStart = _hex(cfg.ctaGradientStartHex);
     final gradientEnd = _hex(cfg.ctaGradientEndHex);
     final headlineColor =
@@ -389,19 +304,7 @@ class _LoginFormBodyState extends State<_LoginFormBody> {
                     ),
                   const SizedBox(height: DesignTokens.spaceLg),
                 ],
-                if (cfg.showRoleSegment) ...[
-                  FigmaLoginRoleSegmentThree(
-                    track: segmentTrack,
-                    brand: brand,
-                    textMuted: textMuted,
-                    customerLabel: 'Customer',
-                    vendorLabel: 'Vendor',
-                    adminLabel: 'Admin',
-                    role: _loginRole,
-                    onChanged: (r) => setState(() => _loginRole = r),
-                  ),
-                  const SizedBox(height: DesignTokens.spaceLg),
-                ],
+                // Customer app only — no vendor/admin role selection.
                 if (cfg.welcomeAlignStart && !cfg.showHeroImage)
                   SizedBox(
                     width: double.infinity,
@@ -482,14 +385,24 @@ class _LoginFormBodyState extends State<_LoginFormBody> {
                 ],
                 const SizedBox(height: DesignTokens.spaceMd),
                 const SizedBox(height: DesignTokens.spaceLg),
-                Obx(
-                  () => FigmaLoginPrimaryCta(
+                BlocConsumer<AuthBloc, AuthBlocState>(
+                  bloc: authBloc,
+                  listener: (context, state) {
+                    final msg = state.errorMessage;
+                    if (msg != null && msg.isNotEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(msg)),
+                      );
+                      authBloc.add(const AuthErrorAcknowledged());
+                    }
+                  },
+                  builder: (context, state) => FigmaLoginPrimaryCta(
                     gradientStart: gradientStart,
                     gradientEnd: gradientEnd,
                     label: cfg.primaryCta,
                     trailingIconUrl: cfg.ctaTrailingIconUrl,
-                    onPressed: auth.loading.value ? null : _submit,
-                    loading: auth.loading.value,
+                    onPressed: state.loading ? null : _submit,
+                    loading: state.loading,
                     useSolid: cfg.ctaUseSolid,
                     trailingStyle: _ctaTrailing(),
                   ),
@@ -554,40 +467,6 @@ class _LoginFormBodyState extends State<_LoginFormBody> {
                         ),
                       ),
                     ],
-                  ),
-                if (cfg.vendorAdminCta.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: DesignTokens.spaceMd),
-                    child: Center(
-                      child: TextButton(
-                        onPressed: _selectVendorOrAdmin,
-                        child: _vendorAdminLine(textMuted),
-                      ),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(top: DesignTokens.spaceMd),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton(
-                          onPressed: _selectVendorOrAdmin,
-                          child: Text(
-                            'REGISTER AS VENDOR',
-                            style: FigmaTypography.vendorAdminLink(brand),
-                          ),
-                        ),
-                        Text('|', style: TextStyle(color: textMuted, fontSize: 12)),
-                        TextButton(
-                          onPressed: _selectVendorOrAdmin,
-                          child: Text(
-                            'ADMIN',
-                            style: FigmaTypography.vendorAdminLink(brand),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 const SizedBox(height: DesignTokens.spaceSm),
                 FigmaLoginLegalFooter(

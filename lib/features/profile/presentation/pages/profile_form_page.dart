@@ -1,13 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 
+import '../../../../bloc/profile/index.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/widgets/adaptive_back_button.dart';
-import '../../../auth/presentation/controllers/auth_controller.dart';
-import '../../domain/usecases/get_user_profile.dart';
-import '../controllers/profile_form_controller.dart';
 
 class ProfileFormPage extends StatefulWidget {
   const ProfileFormPage({super.key});
@@ -24,19 +23,12 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
   @override
   void initState() {
     super.initState();
-    scheduleMicrotask(_loadIfEdit);
-  }
-
-  Future<void> _loadIfEdit() async {
-    if (Get.find<ProfileFormController>().isSignup) return;
-    final auth = Get.find<AuthController>();
-    final uid = auth.currentUser.value?.uid;
-    if (uid == null) return;
-    final profile = await Get.find<GetUserProfile>()(uid);
-    if (!mounted || profile == null) return;
-    setState(() {
-      _name.text = profile.displayName;
-      _email.text = profile.email ?? '';
+    scheduleMicrotask(() {
+      final state = context.read<ProfileBloc>().state;
+      if (state.profile != null) {
+        _name.text = state.profile!.displayName;
+        _email.text = state.profile!.email ?? '';
+      }
     });
   }
 
@@ -49,87 +41,114 @@ class _ProfileFormPageState extends State<ProfileFormPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await Get.find<ProfileFormController>().submit(
-      displayName: _name.text,
-      email: _email.text,
+    context.read<ProfileBloc>().add(
+      ProfileSubmitRequested(displayName: _name.text, email: _email.text),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = Get.find<ProfileFormController>();
-    final title =
-        c.isSignup ? AppStrings.completeProfile : AppStrings.editProfile;
-
-    return Scaffold(
-      appBar: AppBar(
-        leading: adaptiveAppBarLeading(context),
-        automaticallyImplyLeading: adaptiveAppBarImplyLeading(context),
-        title: Text(title),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Text(
-              c.isSignup
-                  ? AppStrings.signupProfileSubtitle
-                  : AppStrings.editProfileSubtitle,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 24),
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextFormField(
-                    controller: _name,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.fullName,
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().length < 2) {
-                        return AppStrings.enterName;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.emailOptional,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            Obx(() {
-              final ctrl = Get.find<ProfileFormController>();
-              return FilledButton(
-                onPressed: ctrl.loading.value ? null : _submit,
-                child: ctrl.loading.value
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        ctrl.isSignup
-                            ? AppStrings.continueLabel
-                            : AppStrings.save,
+    return BlocConsumer<ProfileBloc, ProfileBlocState>(
+      listenWhen: (previous, current) =>
+          previous.profile != current.profile ||
+          previous.errorMessage != current.errorMessage ||
+          previous.navigateToRoute != current.navigateToRoute ||
+          previous.closeCurrentPage != current.closeCurrentPage,
+      listener: (context, state) {
+        if (state.profile != null && _name.text.trim().isEmpty) {
+          _name.text = state.profile!.displayName;
+          _email.text = state.profile!.email ?? '';
+        }
+        final route = state.navigateToRoute;
+        if (route != null && route.isNotEmpty) {
+          Get.offAllNamed(route);
+          context.read<ProfileBloc>().add(const ProfileUiFlagsCleared());
+          return;
+        }
+        if (state.closeCurrentPage) {
+          Get.back<void>();
+          context.read<ProfileBloc>().add(const ProfileUiFlagsCleared());
+          return;
+        }
+        if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+          context.read<ProfileBloc>().add(const ProfileUiFlagsCleared());
+        }
+      },
+      builder: (context, state) {
+        final title = state.isSignup
+            ? AppStrings.completeProfile
+            : AppStrings.editProfile;
+        return Scaffold(
+          appBar: AppBar(
+            leading: adaptiveAppBarLeading(context),
+            automaticallyImplyLeading: adaptiveAppBarImplyLeading(context),
+            title: Text(title),
+          ),
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                Text(
+                  state.isSignup
+                      ? AppStrings.signupProfileSubtitle
+                      : AppStrings.editProfileSubtitle,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 24),
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _name,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          labelText: AppStrings.fullName,
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().length < 2) {
+                            return AppStrings.enterName;
+                          }
+                          return null;
+                        },
                       ),
-              );
-            }),
-          ],
-        ),
-      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: AppStrings.emailOptional,
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+                FilledButton(
+                  onPressed: state.loading ? null : _submit,
+                  child: state.loading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          state.isSignup
+                              ? AppStrings.continueLabel
+                              : AppStrings.save,
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

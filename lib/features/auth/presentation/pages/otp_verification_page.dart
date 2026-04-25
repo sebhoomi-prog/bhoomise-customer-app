@@ -1,14 +1,15 @@
 import 'dart:async';
 
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../app/routes/app_routes.dart';
-import '../../../../core/session/phone_otp_route_persistence.dart';
+import '../../../../bloc/auth/index.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/theme/design_tokens.dart';
-import '../controllers/auth_controller.dart';
 import '../widgets/otp/otp_verification_figma_body.dart';
 
 /// OTP verification — shared for all roles (customer / partner / admin flows).
@@ -23,12 +24,15 @@ class OtpVerificationPage extends StatefulWidget {
 class _OtpVerificationPageState extends State<OtpVerificationPage> {
   static const _otpLen = 6;
   static const _timerSeconds = 120;
+  static const _kDebugOtpKey = 'bhoomise_debug_last_otp';
 
   late final List<TextEditingController> _controllers;
   late final List<FocusNode> _focusNodes;
+  late AuthBloc _authBloc;
   Timer? _timer;
   int _secondsLeft = _timerSeconds;
   bool _verifyInFlight = false;
+  String? _debugOtp;
 
   Map<String, dynamic>? get _args {
     final a = Get.arguments;
@@ -45,9 +49,20 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
     _controllers = List.generate(_otpLen, (_) => TextEditingController());
     _focusNodes = List.generate(_otpLen, (_) => FocusNode());
     _startTimer();
+    if (kDebugMode) {
+      final prefs = Get.find<SharedPreferences>();
+      _debugOtp = prefs.getString(_kDebugOtpKey);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNodes[0].requestFocus();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Must use the same bloc instance provided by AppPages._withAuthBloc.
+    _authBloc = context.read<AuthBloc>();
   }
 
   void _startTimer() {
@@ -136,15 +151,12 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
     }
     FocusManager.instance.primaryFocus?.unfocus();
     _verifyInFlight = true;
-    final auth = Get.find<AuthController>();
     try {
-      await auth.verifyOtp(_code());
+      _authBloc.add(AuthVerifyOtpRequested(_code()));
       if (!mounted) return;
     } on Object catch (e) {
       if (!mounted) return;
-      final msg = auth.errorMessage.value;
-      final text =
-          (msg != null && msg.isNotEmpty) ? msg : e.toString();
+      final text = e.toString();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
     } finally {
       if (mounted) {
@@ -160,15 +172,13 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
       Get.snackbar(AppStrings.error, AppStrings.missingPhoneSession);
       return;
     }
-    final auth = Get.find<AuthController>();
     try {
-      await auth.sendOtp(phone);
-      if (!mounted) return;
-      await PhoneOtpRoutePersistence.markPending(
-        Get.find<SharedPreferences>(),
-        phoneE164: phone,
-        intent: (_args?['intent'] as String?) ?? 'login',
-        role: (_args?['role'] as String?) ?? 'customer',
+      _authBloc.add(
+        AuthResendOtpRequested(
+          phoneE164: phone,
+          intent: (_args?['intent'] as String?) ?? 'login',
+          role: (_args?['role'] as String?) ?? 'customer',
+        ),
       );
       if (!mounted) return;
       _startTimer();
@@ -179,12 +189,8 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.otpResent)),
       );
-    } on Object catch (_) {
+    } on Object {
       if (!mounted) return;
-      final msg = auth.errorMessage.value;
-      if (msg != null && msg.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-      }
     }
   }
 
@@ -195,7 +201,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   }
 
   void _exitOtpFlow() {
-    Get.find<AuthController>().cancelPhoneOtpFlow();
+    _authBloc.add(const AuthOtpFlowCancelled());
     if (Navigator.of(context).canPop()) {
       Get.back<void>();
     } else {
@@ -217,7 +223,6 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Get.find<AuthController>();
     final display = _formatDisplayPhone(_phoneE164);
 
     return PopScope(
@@ -231,9 +236,20 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
       body: Stack(
         clipBehavior: Clip.none,
         children: [
-          Obx(
-            () => OtpVerificationFigmaBody(
+          BlocConsumer<AuthBloc, AuthBlocState>(
+            bloc: _authBloc,
+            listener: (context, state) {
+              final msg = state.errorMessage;
+              if (msg != null && msg.isNotEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(msg)),
+                );
+                _authBloc.add(const AuthErrorAcknowledged());
+              }
+            },
+            builder: (context, state) => OtpVerificationFigmaBody(
                 displayPhone: display,
+                debugOtp: _debugOtp,
                 controllers: _controllers,
                 focusNodes: _focusNodes,
                 onDigitChanged: _onDigitChanged,
@@ -241,7 +257,7 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
                 canResend: _canResend,
                 onResend: _resend,
                 onSubmit: _submit,
-                loading: auth.loading.value,
+                loading: state.loading,
                 isSignup: _isSignup,
                 onTermsTap: () => _soon(AppStrings.termsOfService),
                 onPrivacyTap: () => _soon(AppStrings.privacyPolicy),

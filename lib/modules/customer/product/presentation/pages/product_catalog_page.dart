@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 
 import '../../../../../app/routes/app_routes.dart';
+import '../../../../../bloc/cart/index.dart';
+import '../../../../../bloc/product/index.dart';
 
 import '../../../../../core/constants/app_strings.dart';
 import '../../../../../core/theme/design_tokens.dart';
 import '../../../../../core/utils/money.dart';
 import '../../../../../core/widgets/adaptive_back_button.dart';
 import '../../../../../core/widgets/customer_shell_background.dart';
-import '../../../cart/presentation/controllers/cart_controller.dart';
 import '../../../navigation/customer_shell_navigation.dart';
 import '../../../cart/presentation/widgets/cart_qty_stepper.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_variant.dart';
 import '../../domain/extensions/product_pack_extensions.dart';
-import '../controllers/product_list_controller.dart';
-
-class ProductCatalogPage extends GetView<ProductListController> {
+class ProductCatalogPage extends StatelessWidget {
   const ProductCatalogPage({super.key});
 
   /// Match [leading] presence so the toolbar does not reserve empty leading space on the shell Search tab.
@@ -24,7 +24,7 @@ class ProductCatalogPage extends GetView<ProductListController> {
 
   @override
   Widget build(BuildContext context) {
-    final cart = Get.find<CartController>();
+    final cartState = context.watch<CartBloc>().state;
     final scheme = Theme.of(context).colorScheme;
     final hasBack = routeCanPop(context);
 
@@ -50,36 +50,33 @@ class ProductCatalogPage extends GetView<ProductListController> {
             padding: const EdgeInsetsDirectional.only(end: DesignTokens.spaceMd),
             constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             iconSize: 24,
-            icon: Obx(() {
-              cart.cartVersion.value;
-              final n = cart.totalItemQuantity;
-              return Badge(
-                label: Text('$n'),
-                isLabelVisible: n > 0,
-                backgroundColor: scheme.primary,
-                textColor: scheme.onPrimary,
-                child: Icon(
-                  Icons.shopping_bag_rounded,
-                  color: scheme.onSurface,
-                  size: 24,
-                ),
-              );
-            }),
+            icon: Badge(
+              label: Text('${cartState.totalItemQuantity}'),
+              isLabelVisible: cartState.totalItemQuantity > 0,
+              backgroundColor: scheme.primary,
+              textColor: scheme.onPrimary,
+              child: Icon(
+                Icons.shopping_bag_rounded,
+                color: scheme.onSurface,
+                size: 24,
+              ),
+            ),
             onPressed: CustomerShellNavigation.goCart,
           ),
         ],
       ),
       body: CustomerShellBackground(
-        child: Obx(() {
-          if (controller.loading.value) {
+        child: BlocBuilder<ProductBloc, ProductBlocState>(
+          builder: (context, state) {
+          if (state.loading) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (controller.error.value != null) {
+          if (state.errorMessage != null) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(DesignTokens.spaceLg),
                 child: Text(
-                  controller.error.value!,
+                  state.errorMessage!,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -87,7 +84,8 @@ class ProductCatalogPage extends GetView<ProductListController> {
           }
           return RefreshIndicator(
             color: scheme.primary,
-            onRefresh: controller.load,
+            onRefresh: () async =>
+                context.read<ProductBloc>().add(const ProductRefreshRequested()),
             child: ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
@@ -98,9 +96,9 @@ class ProductCatalogPage extends GetView<ProductListController> {
                 DesignTokens.spaceMd,
                 DesignTokens.spaceXl,
               ),
-              itemCount: controller.products.length,
+              itemCount: state.products.length,
               itemBuilder: (context, index) {
-                final product = controller.products[index];
+                final product = state.products[index];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: DesignTokens.spaceMd),
                   child: _ProductCard(product: product),
@@ -121,7 +119,6 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cart = Get.find<CartController>();
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -195,7 +192,7 @@ class _ProductCard extends StatelessWidget {
           const Divider(height: 1),
           const SizedBox(height: DesignTokens.spaceSm),
           ...product.variantsSortedByPack.map(
-            (v) => _VariantRow(product: product, variant: v, cart: cart),
+            (v) => _VariantRow(product: product, variant: v),
           ),
         ],
       ),
@@ -207,12 +204,10 @@ class _VariantRow extends StatelessWidget {
   const _VariantRow({
     required this.product,
     required this.variant,
-    required this.cart,
   });
 
   final Product product;
   final ProductVariant variant;
-  final CartController cart;
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +263,6 @@ class _VariantRow extends StatelessWidget {
           CartQtyStepper(
             product: product,
             variant: variant,
-            cart: cart,
           ),
         ],
       ),

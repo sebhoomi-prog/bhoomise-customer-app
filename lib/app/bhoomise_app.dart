@@ -5,7 +5,6 @@ import '../core/constants/app_strings.dart';
 import '../core/deeplink/deeplink_handler.dart';
 import '../core/deeplink/deeplink_service.dart';
 import '../core/theme/app_theme.dart';
-import 'bindings/initial_binding.dart';
 import 'routes/app_pages.dart';
 import 'routes/app_routes.dart';
 
@@ -31,7 +30,6 @@ class _BhoomiseAppState extends State<BhoomiseApp> {
     return GetMaterialApp(
       title: AppStrings.appName,
       theme: AppTheme.light(),
-      initialBinding: InitialBinding(),
       initialRoute: AppRoutes.splash,
       getPages: AppPages.routes,
       debugShowCheckedModeBanner: false,

@@ -4,8 +4,6 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../app/routes/app_routes.dart';
-import '../../../../core/firebase/firestore_test_seed.dart';
-import '../../../../core/session/app_session_service.dart';
 import '../../../../core/session/phone_otp_route_persistence.dart';
 import '../../../profile/domain/usecases/resolve_post_auth_destination.dart';
 import '../../domain/auth_exception.dart';
@@ -85,14 +83,9 @@ class AuthController extends GetxController {
   }
 
   Future<void> _navigateAfterPhoneSignIn() async {
-    final session = Get.find<AppSessionService>();
-    final pending = session.consumePendingRole();
-    if (pending != null) {
-      await session.persistRole(pending);
-    }
     final uid = currentUser.value?.uid;
     if (uid == null) return;
-    final shell = session.mainShellRouteAfterAuth;
+    const shell = AppRoutes.home;
     try {
       final dest = await _resolvePostAuth(uid);
       if (dest == PostAuthDestination.completeProfile) {
@@ -144,7 +137,6 @@ class AuthController extends GetxController {
       await _verifySmsCode(code);
       smsCodeUiExpected.value = false;
       await PhoneOtpRoutePersistence.clear(Get.find<SharedPreferences>());
-      await maybeSeedFirestoreForTesting(Get.find<SharedPreferences>());
       unawaited(_navigateAfterPhoneSignIn());
     } on AuthException catch (e) {
       errorMessage.value = e.message;
@@ -163,7 +155,6 @@ class AuthController extends GetxController {
     _explicitSignOutInFlight = true;
     smsCodeUiExpected.value = false;
     try {
-      Get.find<AppSessionService>().clearRole();
       await PhoneOtpRoutePersistence.clear(Get.find<SharedPreferences>());
       await _signOut();
       _hadAuthenticatedSession = false;

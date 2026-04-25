@@ -1,42 +1,34 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/api/api_client.dart';
+import '../../../../core/api/api_endpoints.dart';
+import 'models/coupon_api_models.dart';
 
 import '../domain/coupon_catalog_entry.dart';
 import '../domain/coupon_offer.dart';
-import '../../../../shared/firebase/repositories/shared_coupon_firestore_repository.dart';
 
-/// Reads pack-aware coupons from Firestore `coupons/{code}`.
+/// Reads pack-aware coupons from Laravel REST API.
 class CouponCatalogService {
-  CouponCatalogService({
-    SharedCouponFirestoreRepository? coupons,
-    FirebaseFirestore? db,
-  }) : _coupons = coupons ?? SharedCouponFirestoreRepository(db);
+  CouponCatalogService(this._apiClient);
 
-  final SharedCouponFirestoreRepository _coupons;
+  final ApiClient _apiClient;
 
-  DateTime? _expiresFrom(Map<String, dynamic> m) {
-    final raw = m['expiresAt'] ?? m['expires_at'];
-    if (raw is Timestamp) return raw.toDate();
-    return null;
-  }
-
-  /// Browse flow — documents under `coupons/` (admin / Console).
+  /// Browse flow — `GET /coupons`.
   Future<List<CouponCatalogEntry>> fetchAllCatalogEntries() async {
     final merged = <String, CouponCatalogEntry>{};
     try {
-      final snap = await _coupons.fetchCoupons(limit: 80);
-      for (final doc in snap.docs) {
-        final m = Map<String, dynamic>.from(doc.data());
-        final offer = CouponOffer.fromFirestoreMap(m);
+      final response = await _apiClient.get(ApiEndpoints.coupons);
+      final items = CouponListResponseModel.fromApi(response.data).items;
+      for (final c in items) {
+        final offer = CouponOffer.fromFirestoreMap(c.toCouponOfferMap());
         if (offer == null) continue;
         merged[offer.code] = CouponCatalogEntry.fromParsed(
           offer: offer,
-          badge: m['badge'] as String? ?? m['category'] as String?,
-          description: m['description'] as String?,
-          expiresAt: _expiresFrom(m),
+          badge: c.badge,
+          description: c.description,
+          expiresAt: c.expiresAt,
         );
       }
     } on Object {
-      // Permission / network — return whatever we collected (often empty).
+      // Silently ignore fetch errors; coupons are optional.
     }
     final list = merged.values.toList()
       ..sort((a, b) => b.offer.percentOff.compareTo(a.offer.percentOff));
@@ -47,11 +39,9 @@ class CouponCatalogService {
     final id = code.trim().toUpperCase();
     if (id.isEmpty) return null;
     try {
-      final snap = await _coupons.fetchCoupon(id);
-      if (!snap.exists) return null;
-      final m = snap.data();
-      if (m == null) return null;
-      return CouponOffer.fromFirestoreMap(m);
+      final response = await _apiClient.get('${ApiEndpoints.coupons}/$id');
+      final c = CouponSingleResponseModel.fromApi(response.data).item;
+      return CouponOffer.fromFirestoreMap(c.toCouponOfferMap());
     } on Object {
       return null;
     }

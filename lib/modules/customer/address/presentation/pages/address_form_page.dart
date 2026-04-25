@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:get/get.dart';
@@ -9,11 +10,9 @@ import '../../../../../core/constants/app_strings.dart';
 import '../../../../../core/location/delivery_location_controller.dart';
 import '../../../../../core/network/connectivity_sync_service.dart';
 import '../../../../../app/routes/app_routes.dart';
+import '../../../../../bloc/address_form/index.dart';
 import '../../../../../core/widgets/adaptive_back_button.dart';
-import '../../../../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../domain/entities/delivery_address.dart';
-import '../../domain/usecases/create_delivery_address.dart';
-import '../../domain/usecases/update_delivery_address.dart';
 
 class AddressFormPage extends StatefulWidget {
   const AddressFormPage({super.key});
@@ -35,22 +34,19 @@ class _AddressFormPageState extends State<AddressFormPage> {
 
   String _label = AppStrings.labelHome;
   bool _isDefault = true;
-  bool _saving = false;
   bool _fillingGps = false;
   Timer? _line1Debounce;
 
-  DeliveryAddress? get _existing =>
-      Get.arguments is DeliveryAddress ? Get.arguments as DeliveryAddress : null;
+  DeliveryAddress? get _existing => Get.arguments is DeliveryAddress
+      ? Get.arguments as DeliveryAddress
+      : null;
 
   @override
   void initState() {
     super.initState();
-    final auth = Get.find<AuthController>();
     final existing = _existing;
     _recipient = TextEditingController(text: existing?.recipientName ?? '');
-    _phone = TextEditingController(
-      text: existing?.phone ?? auth.currentUser.value?.phoneNumber ?? '',
-    );
+    _phone = TextEditingController(text: existing?.phone ?? '');
     _line1 = TextEditingController(text: existing?.line1 ?? '');
     _line2 = TextEditingController(text: existing?.line2 ?? '');
     _landmark = TextEditingController(text: existing?.landmark ?? '');
@@ -87,7 +83,10 @@ class _AddressFormPageState extends State<AddressFormPage> {
 
   void _onLine1Changed() {
     _line1Debounce?.cancel();
-    _line1Debounce = Timer(const Duration(milliseconds: 900), _autocompleteFromTypedAddress);
+    _line1Debounce = Timer(
+      const Duration(milliseconds: 900),
+      _autocompleteFromTypedAddress,
+    );
   }
 
   Future<void> _autocompleteFromTypedAddress() async {
@@ -161,232 +160,258 @@ class _AddressFormPageState extends State<AddressFormPage> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final auth = Get.find<AuthController>();
-    final uid = auth.currentUser.value?.uid;
-    if (uid == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(AppStrings.signInToSaveAddress),
-          action: SnackBarAction(
-            label: AppStrings.signIn,
-            onPressed: () => Get.toNamed<void>(AppRoutes.login),
-          ),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _saving = true);
-    try {
-      final entity = DeliveryAddress(
-        id: _existing?.id ?? '',
-        label: _label,
-        recipientName: _recipient.text.trim(),
-        phone: _phone.text.trim(),
-        line1: _line1.text.trim(),
-        line2: _line2.text.trim().isEmpty ? null : _line2.text.trim(),
-        landmark:
-            _landmark.text.trim().isEmpty ? null : _landmark.text.trim(),
-        city: _city.text.trim(),
-        state: _state.text.trim(),
-        pincode: _pincode.text.trim(),
-        isDefault: _isDefault,
-      );
-
-      if (_existing == null) {
-        await Get.find<CreateDeliveryAddress>()(uid, entity);
-      } else {
-        await Get.find<UpdateDeliveryAddress>()(uid, entity);
-      }
-      if (!mounted) return;
-      Get.back<void>();
-    } on Object catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.addressSaveFailed)),
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    final entity = DeliveryAddress(
+      id: _existing?.id ?? '',
+      label: _label,
+      recipientName: _recipient.text.trim(),
+      phone: _phone.text.trim(),
+      line1: _line1.text.trim(),
+      line2: _line2.text.trim().isEmpty ? null : _line2.text.trim(),
+      landmark: _landmark.text.trim().isEmpty ? null : _landmark.text.trim(),
+      city: _city.text.trim(),
+      state: _state.text.trim(),
+      pincode: _pincode.text.trim(),
+      isDefault: _isDefault,
+    );
+    context.read<AddressFormBloc>().add(
+      AddressFormSaveRequested(address: entity, isEdit: _existing != null),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = _existing != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: adaptiveAppBarLeading(context),
-        automaticallyImplyLeading: adaptiveAppBarImplyLeading(context),
-        title: Text(isEdit ? AppStrings.editAddress : AppStrings.addAddress),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Text(
-              AppStrings.addressFormHint,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _fillingGps ? null : _fillFromCurrentLocation,
-              icon: _fillingGps
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location_rounded, size: 20),
-              label: Text(
-                _fillingGps
-                    ? AppStrings.locatingPleaseWait
-                    : AppStrings.useCurrentLocation,
+    return BlocConsumer<AddressFormBloc, AddressFormBlocState>(
+      listenWhen: (previous, current) =>
+          previous.phoneNumber != current.phoneNumber ||
+          previous.errorMessage != current.errorMessage ||
+          previous.requireSignIn != current.requireSignIn ||
+          previous.saveSuccess != current.saveSuccess ||
+          previous.saving != current.saving,
+      listener: (context, state) {
+        if (_phone.text.trim().isEmpty &&
+            state.phoneNumber != null &&
+            state.phoneNumber!.trim().isNotEmpty) {
+          _phone.text = state.phoneNumber!;
+        }
+        if (state.requireSignIn) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(AppStrings.signInToSaveAddress),
+              action: SnackBarAction(
+                label: AppStrings.signIn,
+                onPressed: () => Get.toNamed<void>(AppRoutes.login),
               ),
             ),
-            const SizedBox(height: 16),
-            Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  DropdownButtonFormField<String>(
-                    // ignore: deprecated_member_use
-                    value: _label,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.addressType,
-                      border: const OutlineInputBorder(),
-                    ),
-                    items: [
-                      AppStrings.labelHome,
-                      AppStrings.labelWork,
-                      AppStrings.labelOther,
-                    ]
-                        .map(
-                          (e) => DropdownMenuItem(value: e, child: Text(e)),
+          );
+          context.read<AddressFormBloc>().add(
+            const AddressFormUiFlagsCleared(),
+          );
+          return;
+        }
+        if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+          context.read<AddressFormBloc>().add(
+            const AddressFormUiFlagsCleared(),
+          );
+          return;
+        }
+        if (state.saveSuccess) {
+          Get.back<void>();
+          context.read<AddressFormBloc>().add(
+            const AddressFormUiFlagsCleared(),
+          );
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          appBar: AppBar(
+            leading: adaptiveAppBarLeading(context),
+            automaticallyImplyLeading: adaptiveAppBarImplyLeading(context),
+            title: Text(
+              isEdit ? AppStrings.editAddress : AppStrings.addAddress,
+            ),
+          ),
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                Text(
+                  AppStrings.addressFormHint,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _fillingGps ? null : _fillFromCurrentLocation,
+                  icon: _fillingGps
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                        .toList(),
-                    onChanged: (v) => setState(() => _label = v ?? _label),
+                      : const Icon(Icons.my_location_rounded, size: 20),
+                  label: Text(
+                    _fillingGps
+                        ? AppStrings.locatingPleaseWait
+                        : AppStrings.useCurrentLocation,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _recipient,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.recipientName,
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? AppStrings.required : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _phone,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(15),
+                ),
+                const SizedBox(height: 16),
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        // ignore: deprecated_member_use
+                        value: _label,
+                        decoration: InputDecoration(
+                          labelText: AppStrings.addressType,
+                          border: const OutlineInputBorder(),
+                        ),
+                        items:
+                            [
+                                  AppStrings.labelHome,
+                                  AppStrings.labelWork,
+                                  AppStrings.labelOther,
+                                ]
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (v) => setState(() => _label = v ?? _label),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _recipient,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          labelText: AppStrings.recipientName,
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? AppStrings.required
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _phone,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(15),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: AppStrings.phone,
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (v) => v == null || v.trim().length < 10
+                            ? AppStrings.validPhone
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _line1,
+                        decoration: InputDecoration(
+                          labelText: AppStrings.addressLine1,
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? AppStrings.required
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _line2,
+                        decoration: const InputDecoration(
+                          labelText: AppStrings.addressLine2,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _landmark,
+                        decoration: const InputDecoration(
+                          labelText: AppStrings.landmark,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _city,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          labelText: AppStrings.city,
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? AppStrings.required
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _state,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          labelText: AppStrings.state,
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? AppStrings.required
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _pincode,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: AppStrings.pincode,
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (v) {
+                          final s = v?.trim() ?? '';
+                          if (s.length != 6) return AppStrings.validPincode;
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      CheckboxListTile(
+                        value: _isDefault,
+                        onChanged: (v) =>
+                            setState(() => _isDefault = v ?? false),
+                        title: const Text(AppStrings.saveAsDefaultAddress),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ],
-                    decoration: InputDecoration(
-                      labelText: AppStrings.phone,
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (v) =>
-                        v == null || v.trim().length < 10 ? AppStrings.validPhone : null,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _line1,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.addressLine1,
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? AppStrings.required : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _line2,
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.addressLine2,
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _landmark,
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.landmark,
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _city,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.city,
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? AppStrings.required : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _state,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.state,
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty ? AppStrings.required : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _pincode,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
-                    decoration: InputDecoration(
-                      labelText: AppStrings.pincode,
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (v) {
-                      final s = v?.trim() ?? '';
-                      if (s.length != 6) return AppStrings.validPincode;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  CheckboxListTile(
-                    value: _isDefault,
-                    onChanged: (v) =>
-                        setState(() => _isDefault = v ?? false),
-                    title: const Text(AppStrings.saveAsDefaultAddress),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: state.saving ? null : _save,
+                  child: state.saving
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(isEdit ? AppStrings.save : AppStrings.saveAddress),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 22,
-                      width: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(isEdit ? AppStrings.save : AppStrings.saveAddress),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

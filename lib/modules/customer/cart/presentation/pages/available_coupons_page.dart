@@ -1,16 +1,17 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../bloc/cart/index.dart';
 import '../../../../../core/constants/app_strings.dart';
 import '../../../../../core/theme/design_tokens.dart';
 import '../../../../../core/widgets/adaptive_back_button.dart';
 import '../../data/coupon_catalog_service.dart';
 import '../../domain/coupon_catalog_entry.dart';
 import '../apply_cart_coupon.dart';
-import '../controllers/cart_controller.dart';
 
 /// Full-screen coupon browser — Figma **Available Coupons** (filters + apply).
 class AvailableCouponsPage extends StatefulWidget {
@@ -94,7 +95,7 @@ class _AvailableCouponsPageState extends State<AvailableCouponsPage> {
   }
 
   Future<void> _apply(CouponCatalogEntry entry) async {
-    final cart = Get.find<CartController>();
+    final cart = context.read<CartBloc>().state;
     final out = await applyCouponCodeToCart(
       cart: cart,
       rawCode: entry.offer.code,

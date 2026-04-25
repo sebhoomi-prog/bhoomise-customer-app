@@ -12,6 +12,5 @@ class ApiEndpoints {
   static const coupons = AppConstants.coupons;
   static const stores = AppConstants.stores;
   static const listingSubmissions = AppConstants.listingSubmissions;
-  static String storeInventory(String storeId) =>
-      '${AppConstants.stores}/$storeId/inventory';
+  static const appDocs = AppConstants.appDocs;
 }

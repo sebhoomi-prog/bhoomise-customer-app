@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../app/routes/app_routes.dart';
+import '../../../../../bloc/cart/index.dart';
 import '../../../../../core/constants/app_strings.dart';
 import '../../../../../core/widgets/adaptive_back_button.dart';
 import '../../../../../core/theme/design_tokens.dart';
@@ -14,7 +16,6 @@ import '../../domain/coupon_offer.dart';
 import '../../domain/pack_coupon_evaluator.dart';
 import '../../domain/entities/cart_line.dart';
 import '../apply_cart_coupon.dart';
-import '../controllers/cart_controller.dart';
 
 /// Customer cart — Figma: Your Basket, line cards, voucher, breakdown, checkout CTA.
 class CartPage extends StatefulWidget {
@@ -41,7 +42,7 @@ class _CartPageState extends State<CartPage> {
 
   int _taxMinor(int taxableMinor) => (taxableMinor * 8 + 50) ~/ 100;
 
-  Future<void> _tryApplyCoupon(CartController cart) async {
+  Future<void> _tryApplyCoupon(CartBlocState cart) async {
     final code = _couponCtrl.text.trim().toUpperCase();
     if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -83,18 +84,17 @@ class _CartPageState extends State<CartPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cart = Get.find<CartController>();
+    final cartBloc = context.read<CartBloc>();
 
     return Scaffold(
       backgroundColor: DesignTokens.figmaHeaderFrostTint,
-      body: Obx(() {
-        cart.cartVersion.value;
+      body: BlocBuilder<CartBloc, CartBlocState>(builder: (context, cart) {
         final lines = cart.lines.toList();
         final subtotal = cart.totalMinor;
         final discountMinor = _appliedCoupon == null
             ? 0
             : PackCouponEvaluator.discountMinor(
-                cart.lines,
+                lines,
                 _appliedCoupon!,
               );
         final afterDiscount = (subtotal - discountMinor).clamp(0, 1 << 30);
@@ -109,7 +109,7 @@ class _CartPageState extends State<CartPage> {
             RefreshIndicator(
               color: Theme.of(context).colorScheme.primary,
               displacement: headerTop + 48,
-              onRefresh: cart.refreshCart,
+              onRefresh: () async => cartBloc.add(const CartLoadRequested()),
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics(),
@@ -158,13 +158,15 @@ class _CartPageState extends State<CartPage> {
                               tag: _tagForLine(line),
                               onMinus: () {
                                 if (line.quantity <= 1) {
-                                  cart.remove(line);
+                                  cartBloc.add(CartRemoveRequested(line));
                                 } else {
-                                  cart.decrement(line);
+                                  cartBloc.add(CartDecrementRequested(line));
                                 }
                               },
-                              onPlus: () => cart.increment(line),
-                              onDelete: () => cart.remove(line),
+                              onPlus: () =>
+                                  cartBloc.add(CartIncrementRequested(line)),
+                              onDelete: () =>
+                                  cartBloc.add(CartRemoveRequested(line)),
                             ),
                           ),
                         ),
@@ -675,7 +677,7 @@ class _PriceBreakdown extends StatelessWidget {
     required this.grandTotalMinor,
   });
 
-  final CartController cart;
+  final CartBlocState cart;
   final int subtotalMinor;
   final int discountMinor;
   final int deliveryMinor;

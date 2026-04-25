@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../../bloc/cart/index.dart';
 import '../../../../../core/constants/app_strings.dart';
 import '../../domain/entities/cart_line.dart';
 import '../cart_action_feedback.dart';
-import '../controllers/cart_controller.dart';
 import '../../../product/domain/entities/product.dart';
 import '../../../product/domain/entities/product_variant.dart';
 
@@ -15,7 +15,6 @@ class CartQtyStepper extends StatelessWidget {
     super.key,
     required this.product,
     required this.variant,
-    required this.cart,
     this.dense = false,
     this.showActionFeedback = true,
     /// Blinkit-style home grid: green outline **ADD** when qty is 0.
@@ -24,7 +23,6 @@ class CartQtyStepper extends StatelessWidget {
 
   final Product product;
   final ProductVariant variant;
-  final CartController cart;
   final bool dense;
 
   /// Floating snackbar + haptics when adding or changing qty (home, search, PDP).
@@ -37,16 +35,17 @@ class CartQtyStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final cartBloc = context.read<CartBloc>();
 
-    return Obx(() {
-      cart.cartVersion.value;
-      final line = cart.lineForVariant(product.id, variant.id);
+    return BlocBuilder<CartBloc, CartBlocState>(builder: (context, cartState) {
+      final line = cartState.lineForVariant(product.id, variant.id);
       final qty = line?.quantity ?? 0;
       final disabled = variant.isOutOfStock;
 
       if (qty <= 0) {
         Future<void> addOnce() async {
-          await cart.addLine(
+          cartBloc.add(
+            CartAddRequested(
             CartLine(
               productId: product.id,
               variantId: variant.id,
@@ -57,13 +56,14 @@ class CartQtyStepper extends StatelessWidget {
               imageUrl: product.imageUrl,
               variantGrams: variant.totalGrams,
             ),
+            ),
           );
           if (showActionFeedback && context.mounted) {
             CartActionFeedback.notifyLineChange(
               context,
               product: product,
               variant: variant,
-              cart: cart,
+              cart: cartState,
               delta: 1,
             );
           }
@@ -157,24 +157,24 @@ class CartQtyStepper extends StatelessWidget {
                 ),
                 onPressed: () async {
                   if (effectiveLine.quantity <= 1) {
-                    await cart.remove(effectiveLine);
+                    cartBloc.add(CartRemoveRequested(effectiveLine));
                     if (showActionFeedback && context.mounted) {
                       CartActionFeedback.notifyLineChange(
                         context,
                         product: product,
                         variant: variant,
-                        cart: cart,
+                        cart: cartState,
                         delta: -1,
                       );
                     }
                   } else {
-                    await cart.decrement(effectiveLine);
+                    cartBloc.add(CartDecrementRequested(effectiveLine));
                     if (showActionFeedback && context.mounted) {
                       CartActionFeedback.notifyLineChange(
                         context,
                         product: product,
                         variant: variant,
-                        cart: cart,
+                        cart: cartState,
                         delta: -1,
                       );
                     }
@@ -209,13 +209,13 @@ class CartQtyStepper extends StatelessWidget {
                 onPressed: disabled
                     ? null
                     : () async {
-                        await cart.increment(effectiveLine);
+                        cartBloc.add(CartIncrementRequested(effectiveLine));
                         if (showActionFeedback && context.mounted) {
                           CartActionFeedback.notifyLineChange(
                             context,
                             product: product,
                             variant: variant,
-                            cart: cart,
+                            cart: cartState,
                             delta: 1,
                           );
                         }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 
 import '../../../../../../app/routes/app_routes.dart';
@@ -6,14 +7,11 @@ import '../../../../../../core/constants/app_strings.dart';
 import '../../../../../../core/location/delivery_location_controller.dart';
 import '../../../../../../core/theme/design_tokens.dart';
 import '../../../../../../core/theme/figma_typography.dart';
-import '../../controllers/home_controller.dart';
+import '../../../../../../bloc/home/index.dart';
 
 /// Top row: deliver-to (live GPS area), brand title, profile — quick-commerce style.
 class CustomerHomeFigmaHeader extends StatelessWidget {
-  const CustomerHomeFigmaHeader({
-    super.key,
-    required this.onProfileTap,
-  });
+  const CustomerHomeFigmaHeader({super.key, required this.onProfileTap});
 
   final VoidCallback onProfileTap;
 
@@ -94,15 +92,15 @@ class CustomerHomeFigmaHeader extends StatelessWidget {
                                   title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: FigmaTypography.customerDeliverCity(_green),
+                                  style: FigmaTypography.customerDeliverCity(
+                                    _green,
+                                  ),
                                 ),
                                 Text(
                                   sub,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
+                                  style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: DesignTokens.figmaSectionInk
                                             .withValues(alpha: 0.75),
@@ -135,25 +133,28 @@ class CustomerHomeFigmaHeader extends StatelessWidget {
                   width: 2,
                 ),
               ),
-              child: Obx(() {
-                final name = Get.find<HomeController>().profile.value?.displayName;
-                final initial = (name != null && name.isNotEmpty)
-                    ? name.trim().substring(0, 1).toUpperCase()
-                    : '?';
-                return CircleAvatar(
-                  radius: 16.055,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
-                  child: Text(
-                    initial,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+              child: BlocBuilder<HomeBloc, HomeBlocState>(
+                builder: (context, state) {
+                  final name = state.profile?.displayName;
+                  final initial = (name != null && name.isNotEmpty)
+                      ? name.trim().substring(0, 1).toUpperCase()
+                      : '?';
+                  return CircleAvatar(
+                    radius: 16.055,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer,
+                    child: Text(
+                      initial,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                },
+              ),
             ),
           ),
         ),

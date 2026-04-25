@@ -1,30 +1,10 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../firebase_options.dart';
-
-Future<void> _persistFcmTokenToUserDoc(String token) async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null || token.isEmpty) return;
-  try {
-    await FirebaseFirestore.instance.collection('users').doc(uid).set(
-      {
-        'fcmTokens': FieldValue.arrayUnion([token]),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-  } on Object catch (e) {
-    if (kDebugMode) {
-      debugPrint('FCM token persist failed: $e');
-    }
-  }
-}
 
 /// Must be a top-level function; register before other Firebase Messaging usage.
 @pragma('vm:entry-point')
@@ -76,7 +56,7 @@ Future<void> setupFirebaseMessaging() async {
 
     // Do not await getToken() during startup — Installations often returns
     // SERVICE_NOT_AVAILABLE offline and older plugin builds still threw.
-    // Best-effort: log (debug) + persist token on `users/{uid}` for future Cloud Functions push.
+    // Best-effort: log token; backend registration is handled via authenticated API flows.
     scheduleMicrotask(() async {
       try {
         final t = await FirebaseMessaging.instance
@@ -84,9 +64,6 @@ Future<void> setupFirebaseMessaging() async {
             .timeout(const Duration(seconds: 20));
         if (kDebugMode) {
           debugPrint('FCM registration token: $t');
-        }
-        if (t != null && t.isNotEmpty) {
-          await _persistFcmTokenToUserDoc(t);
         }
       } on Object catch (e) {
         if (kDebugMode) {
@@ -98,9 +75,9 @@ Future<void> setupFirebaseMessaging() async {
     });
 
     FirebaseMessaging.instance.onTokenRefresh.listen((t) {
-      scheduleMicrotask(() async {
-        await _persistFcmTokenToUserDoc(t);
-      });
+      if (kDebugMode) {
+        debugPrint('FCM token refreshed: $t');
+      }
     });
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {

@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../../../bloc/product/index.dart';
 import '../../../../../../app/routes/app_routes.dart';
 import '../../../../../../core/constants/app_strings.dart';
 import '../../../../../../core/theme/design_tokens.dart';
 import '../../../../../../core/util/unsplash_raster_url.dart';
 import '../../../../../../core/utils/money.dart';
-import '../../../../cart/presentation/controllers/cart_controller.dart';
 import '../../../../cart/presentation/widgets/cart_qty_stepper.dart';
 import '../../../../product/domain/entities/product.dart';
 import '../../../../product/domain/entities/product_variant.dart';
 import '../../../../product/domain/extensions/product_pack_extensions.dart';
-import '../../../../product/presentation/controllers/product_list_controller.dart';
 
 /// Blinkit-style 2-column product grid — white cards, circular image tray, ETA pill,
 /// optional discount / Ad badge, outline **ADD** (Figma Customer Home export).
@@ -24,11 +24,8 @@ class CustomerFreshArrivalsBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final list = Get.find<ProductListController>();
-    final cart = Get.find<CartController>();
-
-    return Obx(() {
-      if (list.loading.value) {
+    return BlocBuilder<ProductBloc, ProductBlocState>(builder: (context, list) {
+      if (list.loading) {
         return const Center(
           child: Padding(
             padding: EdgeInsets.all(DesignTokens.spaceLg),
@@ -36,8 +33,8 @@ class CustomerFreshArrivalsBlock extends StatelessWidget {
           ),
         );
       }
-      if (list.error.value != null) {
-        return Text(list.error.value!, textAlign: TextAlign.center);
+      if (list.errorMessage != null) {
+        return Text(list.errorMessage!, textAlign: TextAlign.center);
       }
       final items = list.products.take(4).toList();
       if (items.isEmpty) {
@@ -62,7 +59,6 @@ class CustomerFreshArrivalsBlock extends StatelessWidget {
             itemBuilder: (context, index) {
               return CustomerArrivalProductCard(
                 product: items[index],
-                cart: cart,
                 gridIndex: index,
                 maxCrossAxisExtent: maxW,
               );
@@ -78,13 +74,11 @@ class CustomerArrivalProductCard extends StatelessWidget {
   const CustomerArrivalProductCard({
     super.key,
     required this.product,
-    required this.cart,
     required this.gridIndex,
     required this.maxCrossAxisExtent,
   });
 
   final Product product;
-  final CartController cart;
   final int gridIndex;
   final double maxCrossAxisExtent;
 
@@ -281,7 +275,6 @@ class CustomerArrivalProductCard extends StatelessWidget {
                         child: CartQtyStepper(
                           product: product,
                           variant: v,
-                          cart: cart,
                           dense: true,
                           outlinedZeroAdd: true,
                         ),

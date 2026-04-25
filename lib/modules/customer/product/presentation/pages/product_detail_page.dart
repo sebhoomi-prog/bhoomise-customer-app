@@ -1,22 +1,23 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../app/routes/app_routes.dart';
+import '../../../../../bloc/cart/index.dart';
+import '../../../../../bloc/home/index.dart';
+import '../../../../../bloc/product/index.dart';
 import '../../../../../core/constants/app_strings.dart';
 import '../../../../../core/widgets/adaptive_back_button.dart';
 import '../../../../../core/theme/design_tokens.dart';
 import '../../../../../core/utils/money.dart';
 import '../../../cart/domain/entities/cart_line.dart';
 import '../../../cart/presentation/cart_action_feedback.dart';
-import '../../../cart/presentation/controllers/cart_controller.dart';
-import '../../../home/presentation/controllers/home_controller.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/product_variant.dart';
 import '../../domain/extensions/product_pack_extensions.dart';
-import '../controllers/product_list_controller.dart';
 
 /// Customer PDP — Figma: hero, overlapping white card, frosted chrome, sticky cart bar.
 class ProductDetailPage extends StatefulWidget {
@@ -30,6 +31,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   int _variantIndex = 0;
   int _qty = 1;
   bool _favorite = false;
+
   /// Prevents stacked [addLine] + Hive writes from rapid double-taps on "Add to cart".
   bool _addToCartBusy = false;
 
@@ -43,7 +45,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     final arg = Get.arguments;
     if (arg is Product) return arg;
     if (arg is String) {
-      final list = Get.find<ProductListController>().products;
+      final list = Get.find<ProductBloc>().state.products;
       for (final p in list) {
         if (p.id == arg) return p;
       }
@@ -54,7 +56,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   @override
   Widget build(BuildContext context) {
     final product = _resolveProduct();
-    final cart = Get.find<CartController>();
+    final cartBloc = context.read<CartBloc>();
+    final cartState = context.watch<CartBloc>().state;
 
     if (product == null || product.variants.isEmpty) {
       return Scaffold(
@@ -88,7 +91,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                     children: [
                       ColoredBox(
                         color: DesignTokens.figmaCategoryCard,
-                        child: product.imageUrl != null &&
+                        child:
+                            product.imageUrl != null &&
                                 product.imageUrl!.isNotEmpty
                             ? Image.network(
                                 product.imageUrl!,
@@ -107,12 +111,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               end: Alignment.topCenter,
                               stops: const [0, 0.45, 1],
                               colors: [
-                                DesignTokens.figmaHeaderFrostTint
-                                    .withValues(alpha: 0.6),
-                                DesignTokens.figmaHeaderFrostTint
-                                    .withValues(alpha: 0),
-                                DesignTokens.figmaHeaderFrostTint
-                                    .withValues(alpha: 0),
+                                DesignTokens.figmaHeaderFrostTint.withValues(
+                                  alpha: 0.6,
+                                ),
+                                DesignTokens.figmaHeaderFrostTint.withValues(
+                                  alpha: 0,
+                                ),
+                                DesignTokens.figmaHeaderFrostTint.withValues(
+                                  alpha: 0,
+                                ),
                               ],
                             ),
                           ),
@@ -151,8 +158,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
                 child: Container(
-                  color:
-                      DesignTokens.figmaHeaderFrostTint.withValues(alpha: 0.7),
+                  color: DesignTokens.figmaHeaderFrostTint.withValues(
+                    alpha: 0.7,
+                  ),
                   padding: EdgeInsets.only(
                     top: MediaQuery.paddingOf(context).top + 8,
                     left: DesignTokens.spaceLg,
@@ -181,8 +189,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       if (routeCanPop(context)) const SizedBox(width: 4),
                       const Spacer(),
                       IconButton(
-                        onPressed: () =>
-                            setState(() => _favorite = !_favorite),
+                        onPressed: () => setState(() => _favorite = !_favorite),
                         icon: Icon(
                           _favorite ? Icons.favorite : Icons.favorite_border,
                           color: DesignTokens.figmaPinIconGreen,
@@ -207,9 +214,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.7),
-                    border: const Border(
-                      top: BorderSide(color: _borderTop),
-                    ),
+                    border: const Border(top: BorderSide(color: _borderTop)),
                   ),
                   padding: EdgeInsets.fromLTRB(
                     DesignTokens.spaceLg,
@@ -227,16 +232,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                               setState(() => _addToCartBusy = true);
                               final added = _qty;
                               try {
-                                await cart.addLine(
-                                  CartLine(
-                                    productId: product.id,
-                                    variantId: v.id,
-                                    productName: product.name,
-                                    variantLabel: v.label,
-                                    unitPriceMinor: v.priceMinor,
-                                    quantity: added,
-                                    imageUrl: product.imageUrl,
-                                    variantGrams: v.totalGrams,
+                                cartBloc.add(
+                                  CartAddRequested(
+                                    CartLine(
+                                      productId: product.id,
+                                      variantId: v.id,
+                                      productName: product.name,
+                                      variantLabel: v.label,
+                                      unitPriceMinor: v.priceMinor,
+                                      quantity: added,
+                                      imageUrl: product.imageUrl,
+                                      variantGrams: v.totalGrams,
+                                    ),
                                   ),
                                 );
                                 if (!context.mounted) return;
@@ -244,7 +251,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                                   context,
                                   product: product,
                                   variant: v,
-                                  cart: cart,
+                                  cart: cartState,
                                   delta: added,
                                 );
                               } finally {
@@ -340,9 +347,8 @@ class _PdpProfileChip extends StatelessWidget {
             backgroundColor: Theme.of(context).colorScheme.primaryContainer,
             child: Builder(
               builder: (context) {
-                if (Get.isRegistered<HomeController>()) {
-                  final name =
-                      Get.find<HomeController>().profile.value?.displayName;
+                if (Get.isRegistered<HomeBloc>()) {
+                  final name = Get.find<HomeBloc>().state.profile?.displayName;
                   final initial = (name != null && name.isNotEmpty)
                       ? name.trim().substring(0, 1).toUpperCase()
                       : '?';
@@ -407,10 +413,7 @@ class _ProductContentCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _MetaPriceBlock(
-            product: product,
-            variant: variant,
-          ),
+          _MetaPriceBlock(product: product, variant: variant),
           const SizedBox(height: DesignTokens.spaceMd),
           _RatingFreshnessRow(),
           if (variants.length > 1) ...[
@@ -470,17 +473,11 @@ class _ProductContentCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: DesignTokens.spaceLg),
-          _SectionHeader(
-            icon: Icons.spa_rounded,
-            title: 'Health Benefits',
-          ),
+          _SectionHeader(icon: Icons.spa_rounded, title: 'Health Benefits'),
           const SizedBox(height: 10),
           _HealthBenefitsBody(product: product),
           const SizedBox(height: DesignTokens.spaceLg),
-          _SectionHeader(
-            icon: Icons.restaurant_rounded,
-            title: 'Cooking Tips',
-          ),
+          _SectionHeader(icon: Icons.restaurant_rounded, title: 'Cooking Tips'),
           const SizedBox(height: 10),
           Text(
             _cookingTipsCopy,
@@ -565,10 +562,7 @@ class _HealthBenefitsBody extends StatelessWidget {
 }
 
 class _MetaPriceBlock extends StatelessWidget {
-  const _MetaPriceBlock({
-    required this.product,
-    required this.variant,
-  });
+  const _MetaPriceBlock({required this.product, required this.variant});
 
   final Product product;
   final ProductVariant variant;
@@ -586,8 +580,10 @@ class _MetaPriceBlock extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 2.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 2.5,
+                    ),
                     decoration: BoxDecoration(
                       color: DesignTokens.figmaAccentLime,
                       borderRadius: BorderRadius.circular(9999),
@@ -668,7 +664,11 @@ class _RatingFreshnessRow extends StatelessWidget {
           flex: 5,
           child: Row(
             children: [
-              const Icon(Icons.star_rounded, color: Color(0xFFEAB308), size: 20),
+              const Icon(
+                Icons.star_rounded,
+                color: Color(0xFFEAB308),
+                size: 20,
+              ),
               const SizedBox(width: 4),
               Text(
                 '4.8',
@@ -737,9 +737,7 @@ class _RatingFreshnessRow extends StatelessWidget {
                   height: 6,
                   child: Stack(
                     children: [
-                      Container(
-                        color: _ProductDetailPageState._freshnessTrack,
-                      ),
+                      Container(color: _ProductDetailPageState._freshnessTrack),
                       FractionallySizedBox(
                         widthFactor: 0.85,
                         child: Container(
@@ -904,10 +902,7 @@ class _QuantityPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _RoundIconBtn(
-            icon: Icons.remove,
-            onPressed: onMinus,
-          ),
+          _RoundIconBtn(icon: Icons.remove, onPressed: onMinus),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
@@ -920,10 +915,7 @@ class _QuantityPill extends StatelessWidget {
               ),
             ),
           ),
-          _RoundIconBtn(
-            icon: Icons.add,
-            onPressed: onPlus,
-          ),
+          _RoundIconBtn(icon: Icons.add, onPressed: onPlus),
         ],
       ),
     );
@@ -969,6 +961,7 @@ class _AddToCartGradientButton extends StatelessWidget {
 
   final String label;
   final VoidCallback? onPressed;
+
   /// False when variant is out of stock (grey chrome).
   final bool inStock;
   final bool busy;

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 
+import '../../../../../bloc/cart/index.dart';
 import '../../../../../core/constants/app_strings.dart';
 import '../../../../../core/network/connectivity_sync_service.dart';
 import '../../../../../core/theme/design_tokens.dart';
 import '../../../../../core/widgets/bhoomise_role_bottom_nav.dart';
-import '../../../cart/presentation/controllers/cart_controller.dart';
 import '../../../cart/presentation/pages/cart_page.dart';
 import '../../../home/presentation/home_page.dart';
 import '../../../product/presentation/pages/product_catalog_page.dart';
@@ -129,21 +130,23 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
           ),
         ],
       ),
-      bottomNavigationBar: Obx(() {
-        final cart = Get.find<CartController>();
-        cart.cartVersion.value;
-        final units = cart.totalItemQuantity;
-        return BhoomiseRoleBottomNav(
-          currentIndex: shell.tabIndex.value,
-          onTap: (i) {
-            shell.setTab(i);
-            if (i == 2) {
-              cart.refreshCart();
-            }
-          },
-          items: _navItems(units),
-        );
-      }),
+      bottomNavigationBar: BlocSelector<CartBloc, CartBlocState, int>(
+        selector: (state) => state.totalItemQuantity,
+        builder: (context, units) {
+          return Obx(() {
+            return BhoomiseRoleBottomNav(
+              currentIndex: shell.tabIndex.value,
+              onTap: (i) {
+                shell.setTab(i);
+                if (i == 2) {
+                  context.read<CartBloc>().add(const CartLoadRequested());
+                }
+              },
+              items: _navItems(units),
+            );
+          });
+        },
+      ),
     );
   }
 }
