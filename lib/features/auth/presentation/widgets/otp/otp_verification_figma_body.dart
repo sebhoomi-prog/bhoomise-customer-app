@@ -226,10 +226,10 @@ class _OtpCard extends StatelessWidget {
                           onChanged: (v) => onDigitChanged(i, v),
                           textInputAction: i == controllers.length - 1
                               ? TextInputAction.done
-                              : TextInputAction.none,
+                              : TextInputAction.next,
                           onFieldSubmitted: i == controllers.length - 1
                               ? onSubmit
-                              : null,
+                              : () => focusNodes[i + 1].requestFocus(),
                         ),
                       ),
                     );
@@ -430,7 +430,7 @@ class _OtpSlot extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.onChanged,
-    this.textInputAction = TextInputAction.none,
+    this.textInputAction = TextInputAction.next,
     this.onFieldSubmitted,
   });
 
@@ -464,6 +464,7 @@ class _OtpSlot extends StatelessWidget {
                     textInputAction: textInputAction,
                     textAlign: TextAlign.center,
                     maxLength: 1,
+                    enableInteractiveSelection: false,
                     style: GoogleFonts.inter(
                       fontSize: fontSize,
                       height: lineHeight,

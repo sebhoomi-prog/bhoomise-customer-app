@@ -1,18 +1,16 @@
 class AppConstants {
   AppConstants._();
 
-  static const defaultApiBaseUrl = 'https://bhoomise.tech/api';
+  static const defaultApiBaseUrl = 'https://bhoomise.tech';
 
-  /// Laravel routes are nested under `/api/...` on this host.
-  ///
-  /// Our [defaultApiBaseUrl] ends with `/api` (no trailing slash), so prefix all
-  /// endpoint paths with a leading slash to avoid URLs like `.../apiapi/...`.
-  ///
-  /// Final URL matches Postman: `https://bhoomise.tech/api/api/...`.
-  static const apiPrefix = '/api';
+  /// Production deploys routes under `/api/api/...` (not `/api/...`).
+  static const apiPrefix = '/api/api';
 
   static const authSendOtp = '$apiPrefix/auth/send-otp';
   static const authVerifyOtp = '$apiPrefix/auth/verify-otp';
+  /// Older environments that only mount a single `/api` prefix.
+  static const authSendOtpLegacy = '/api/auth/send-otp';
+  static const authVerifyOtpLegacy = '/api/auth/verify-otp';
   static const me = '$apiPrefix/me';
   static const products = '$apiPrefix/products';
   static const coupons = '$apiPrefix/coupons';

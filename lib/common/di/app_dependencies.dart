@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart' show Interceptor;
@@ -13,6 +15,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/api_interceptors.dart';
 import '../../core/api/dio_factory.dart';
+import '../../core/network/api_origin_normalize.dart';
 import '../../core/location/delivery_location_controller.dart';
 import '../../core/network/connectivity_sync_service.dart';
 import '../../core/network/mock_asset_client.dart';
@@ -86,7 +89,7 @@ void _registerCoreDependencies() {
   Get.lazyPut<ApiClient>(
     () => ApiClient(
       dio: DioFactory.create(
-        baseUrl: BackendConfig.apiBaseUrl.trim(),
+        baseUrl: normalizeApiOriginForDio(BackendConfig.apiBaseUrl),
         extraInterceptors: <Interceptor>[
           AuthBearerInterceptor(() => Get.find<AppSessionService>().apiToken),
           ApiLoggerInterceptor(),
@@ -197,6 +200,8 @@ void _registerCommerceDependencies() {
   );
   Get.lazyPut<ProductRemoteDataSource>(() {
     if (BackendConfig.hasRestApi) {
+      // In API mode, always prefer server catalog. Falling back to mock data can
+      // hide backend/network issues and make Search/Home show only the 2 local items.
       return ProductApiDataSource(Get.find<ApiClient>());
     }
     if (BackendConfig.useMockApiAssets) {

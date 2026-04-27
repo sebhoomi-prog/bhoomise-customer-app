@@ -8,7 +8,7 @@ import '../../../../../../core/theme/figma_typography.dart';
 import '../../../../../../core/util/unsplash_raster_url.dart';
 import '../../../domain/customer_home_category.dart';
 
-/// 2×2 category tiles — `#EFF4FF`, 48px radius; data from Firestore (`app/customer_home`).
+/// Horizontal circular category scroll — Figma home style.
 class CustomerCategoryGrid extends StatelessWidget {
   const CustomerCategoryGrid({super.key});
 
@@ -19,7 +19,7 @@ class CustomerCategoryGrid extends StatelessWidget {
         final items = state.categoriesOrDefault;
         if (items.isEmpty) {
           return SizedBox(
-            height: 120,
+            height: 96,
             child: Center(
               child: CircularProgressIndicator(
                 color: Theme.of(context).colorScheme.primary,
@@ -27,22 +27,18 @@ class CustomerCategoryGrid extends StatelessWidget {
             ),
           );
         }
-        return GridView.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: DesignTokens.spaceMd,
-          crossAxisSpacing: DesignTokens.spaceMd,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          // Slightly taller tiles so title/subtitle + image never clip on small phones.
-          childAspectRatio: 0.82,
-          children: items
-              .map(
-                (c) => _CustomerCategoryCard(
-                  item: c,
-                  onTap: CustomerShellNavigation.goSearch,
-                ),
-              )
-              .toList(),
+        return SizedBox(
+          height: 120,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: DesignTokens.spaceMd),
+            itemBuilder: (context, i) => _CustomerCategoryCard(
+              item: items[i],
+              onTap: CustomerShellNavigation.goSearch,
+            ),
+          ),
         );
       },
     );
@@ -55,10 +51,6 @@ class _CustomerCategoryCard extends StatelessWidget {
   final CustomerHomeCategory item;
   final VoidCallback onTap;
 
-  static final _radius = BorderRadius.circular(
-    DesignTokens.customerHomeCategoryRadius,
-  );
-
   String _imageUrlForDecode(String url) {
     final u = url.trim().toLowerCase();
     if (u.startsWith('https://images.unsplash.com')) {
@@ -69,97 +61,42 @@ class _CustomerCategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final variant = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    return Material(
-      color: DesignTokens.figmaCategoryCard,
-      borderRadius: _radius,
-      clipBehavior: Clip.antiAlias,
+    return SizedBox(
+      width: 86,
       child: InkWell(
+        borderRadius: BorderRadius.circular(48),
         onTap: onTap,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                DesignTokens.spaceLg,
-                DesignTokens.spaceLg,
-                DesignTokens.spaceLg,
-                DesignTokens.spaceSm,
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: DesignTokens.figmaCategoryCard,
+                borderRadius: BorderRadius.circular(48),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: FigmaTypography.categoryNameFigma(
-                      DesignTokens.figmaCategoryNameGreen,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: FigmaTypography.categorySubtitleFigma(),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    item.tagline,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: variant,
-                      height: 1.35,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
+              clipBehavior: Clip.antiAlias,
+              child: Image.network(
+                _imageUrlForDecode(item.imageUrl),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Icon(
+                  Icons.image_not_supported_outlined,
+                  color: Theme.of(context).colorScheme.outline,
+                  size: 28,
+                ),
               ),
             ),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.only(
-                  bottomLeft: _radius.bottomLeft,
-                  bottomRight: _radius.bottomRight,
-                ),
-                child: Image.network(
-                  _imageUrlForDecode(item.imageUrl),
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.high,
-                  gaplessPlayback: true,
-                  errorBuilder: (_, __, ___) => ColoredBox(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      color: Theme.of(context).colorScheme.outline,
-                      size: 40,
-                    ),
-                  ),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return ColoredBox(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest
-                          .withValues(alpha: 0.6),
-                      child: Center(
-                        child: SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+            const SizedBox(height: 8),
+            Text(
+              item.title.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: FigmaTypography.categorySubtitleFigma().copyWith(
+                fontWeight: FontWeight.w700,
+                fontSize: 11,
+                letterSpacing: 0.55,
               ),
             ),
           ],

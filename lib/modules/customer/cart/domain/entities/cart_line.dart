@@ -1,4 +1,5 @@
 import '../../../../../core/util/pack_weight.dart';
+import '../../../../../core/util/product_image_url.dart';
 
 class CartLine {
   const CartLine({
@@ -50,7 +51,7 @@ class CartLine {
       variantLabel: label,
       unitPriceMinor: (m['unitPriceMinor'] as num).toInt(),
       quantity: (m['quantity'] as num).toInt(),
-      imageUrl: m['imageUrl'] as String?,
+      imageUrl: sanitizeProductImageUrl(m['imageUrl'] as String?),
       lineTag: m['lineTag'] as String?,
       variantGrams: (m['variantGrams'] as num?)?.toInt() ?? parsePackGrams(label),
     );

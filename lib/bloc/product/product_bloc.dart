@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/network/network_exceptions.dart';
 import '../../modules/customer/product/domain/usecases/get_products.dart';
 import '../base/index.dart';
 import 'product_event.dart';
@@ -21,8 +22,19 @@ class ProductBloc extends Bloc<BaseEvent, ProductBlocState> {
     try {
       final products = await _getProducts();
       emit(state.copyWith(loading: false, products: products));
-    } on Object catch (e) {
-      emit(state.copyWith(loading: false, errorMessage: e.toString()));
+    } on NetworkException catch (e) {
+      final message = e.message.trim().isEmpty
+          ? 'Unable to reach server. Please check your internet and try again.'
+          : e.message;
+      emit(state.copyWith(loading: false, errorMessage: message));
+    } on Object {
+      emit(
+        state.copyWith(
+          loading: false,
+          errorMessage:
+              'Unable to load products right now. Please try again in a moment.',
+        ),
+      );
     }
   }
 }

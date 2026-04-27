@@ -11,7 +11,13 @@ class CustomerHomeApiDataSource {
   CustomerHomeApiDataSource(this._apiClient);
 
   final ApiClient _apiClient;
-  bool _appDocsEndpointMissing = false;
+  // Backend currently does not expose `/api/app` on production.
+  // Keep remote app-docs disabled by default to avoid startup 404 noise.
+  static const bool _enableRemoteAppDocs = bool.fromEnvironment(
+    'ENABLE_APP_DOCS_API',
+    defaultValue: false,
+  );
+  bool _appDocsEndpointMissing = !_enableRemoteAppDocs;
 
   Stream<List<CustomerHomeCategory>> watchCategories({
     Duration interval = const Duration(seconds: 30),
@@ -46,6 +52,7 @@ class CustomerHomeApiDataSource {
   }
 
   Future<void> saveCategories(List<CustomerHomeCategory> categories) async {
+    if (_appDocsEndpointMissing) return;
     await _apiClient.post(
       ApiEndpoints.appDocs,
       data: {

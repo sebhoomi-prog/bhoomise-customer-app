@@ -11,8 +11,7 @@ class ProductMockDataSource implements ProductRemoteDataSource {
         id: 'mushroom_oyster',
         name: 'Fresh Oyster Mushrooms',
         description: 'Grown locally, ideal for stir-fry and soups.',
-        imageUrl:
-            'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?fm=jpg&fit=crop&w=800&q=80',
+        imageUrl: null,
         variants: [
           ProductVariantModel(
             id: 'v200',
@@ -60,8 +59,7 @@ class ProductMockDataSource implements ProductRemoteDataSource {
         id: 'mushroom_button',
         name: 'Button Mushrooms',
         description: 'Versatile white mushrooms for everyday cooking.',
-        imageUrl:
-            'https://images.unsplash.com/photo-1567333506008-8be40c293909?fm=jpg&fit=crop&w=800&q=80',
+        imageUrl: null,
         variants: [
           ProductVariantModel(
             id: 'bv250',

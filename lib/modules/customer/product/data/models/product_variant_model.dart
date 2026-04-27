@@ -23,19 +23,37 @@ class ProductVariantModel extends ProductVariant {
   }
 
   factory ProductVariantModel.fromJson(Map<String, dynamic> json) {
-    final label = json['label'] as String;
+    final label = (json['label'] ?? json['unit'] ?? '').toString();
     final gramsRaw = json['totalGrams'] ?? json['total_grams'];
     final grams = gramsRaw is num
         ? gramsRaw.toInt()
         : parsePackGrams(label) ?? 0;
     return ProductVariantModel(
-      id: json['id'] as String,
+      id: (json['id'] ?? json['variant_id'] ?? '').toString(),
       label: label,
       totalGrams: grams > 0 ? grams : (parsePackGrams(label) ?? 1),
-      priceMinor: (json['priceMinor'] as num).toInt(),
-      stock: (json['stock'] as num).toInt(),
-      lowStockThreshold: (json['lowStockThreshold'] as num).toInt(),
+      priceMinor: _readPriceMinor(json),
+      stock: (json['stock'] as num?)?.toInt() ??
+          (json['inventory'] as num?)?.toInt() ??
+          0,
+      lowStockThreshold: (json['lowStockThreshold'] as num?)?.toInt() ??
+          (json['low_stock_threshold'] as num?)?.toInt() ??
+          5,
     );
+  }
+
+  static int _readPriceMinor(Map<String, dynamic> json) {
+    final priceMinor = json['priceMinor'] ?? json['price_minor'];
+    if (priceMinor is num) return priceMinor.toInt();
+    if (priceMinor is String) return int.tryParse(priceMinor) ?? 0;
+
+    final price = json['price'];
+    if (price is num) return (price * 100).round();
+    if (price is String) {
+      final parsed = double.tryParse(price);
+      if (parsed != null) return (parsed * 100).round();
+    }
+    return 0;
   }
 
   Map<String, dynamic> toJson() => {

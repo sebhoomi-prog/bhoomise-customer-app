@@ -69,6 +69,22 @@ class AppPages {
     );
   }
 
+  static Widget _withCommerceBlocProviders(Widget child) {
+    final cartBloc = Get.find<CartBloc>();
+    final productBloc = Get.find<ProductBloc>();
+    final homeBloc = Get.find<HomeBloc>();
+    final profileBloc = Get.find<ProfileBloc>();
+    return MultiBlocProvider(
+      providers: <BlocProvider<dynamic>>[
+        BlocProvider<CartBloc>.value(value: cartBloc),
+        BlocProvider<ProductBloc>.value(value: productBloc),
+        BlocProvider<HomeBloc>.value(value: homeBloc),
+        BlocProvider<ProfileBloc>.value(value: profileBloc),
+      ],
+      child: child,
+    );
+  }
+
   static Widget _withAddressBloc(Widget child) {
     final bloc = Get.find<AddressBloc>();
     return _AddressRouteScope(
@@ -118,7 +134,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.productDetail,
-      page: () => const ProductDetailPage(),
+      page: () => _withCommerceBlocProviders(const ProductDetailPage()),
     ),
     GetPage(name: AppRoutes.orderTrack, page: () => const OrderTrackPage()),
     GetPage(

@@ -569,87 +569,101 @@ class _MetaPriceBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 340;
+        final titleStyle = GoogleFonts.manrope(
+          fontSize: compact ? 32 : 36,
+          height: compact ? 36 / 32 : 40 / 36,
+          fontWeight: FontWeight.w800,
+          letterSpacing: compact ? -0.7 : -0.9,
+          color: DesignTokens.figmaSectionInk,
+        );
+        final priceBlock = Column(
+          crossAxisAlignment:
+              compact ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 2.5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: DesignTokens.figmaAccentLime,
-                      borderRadius: BorderRadius.circular(9999),
-                    ),
-                    child: Text(
-                      'WOOD-GROWN',
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1,
-                        height: 15 / 10,
-                        color: _ProductDetailPageState._priceGreen,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    product.name,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.manrope(
-                      fontSize: 36,
-                      height: 40 / 36,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.9,
-                      color: DesignTokens.figmaSectionInk,
-                    ),
-                  ),
-                ],
+            Text(
+              formatInrMinor(variant.priceMinor),
+              style: GoogleFonts.manrope(
+                fontSize: 30,
+                height: 36 / 30,
+                fontWeight: FontWeight.w700,
+                color: _ProductDetailPageState._priceGreen,
               ),
             ),
-            const SizedBox(width: DesignTokens.spaceMd),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  formatInrMinor(variant.priceMinor),
-                  style: GoogleFonts.manrope(
-                    fontSize: 30,
-                    height: 36 / 30,
-                    fontWeight: FontWeight.w700,
-                    color: _ProductDetailPageState._priceGreen,
-                  ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'PER ${variant.label.toUpperCase()}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: compact ? TextAlign.start : TextAlign.end,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1,
+                  height: 15 / 10,
+                  color: _ProductDetailPageState._metaGrey,
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'PER ${variant.label.toUpperCase()}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
-                      height: 15 / 10,
-                      color: _ProductDetailPageState._metaGrey,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
-        ),
-      ],
+        );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 2.5,
+              ),
+              decoration: BoxDecoration(
+                color: DesignTokens.figmaAccentLime,
+                borderRadius: BorderRadius.circular(9999),
+              ),
+              child: Text(
+                'WOOD-GROWN',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1,
+                  height: 15 / 10,
+                  color: _ProductDetailPageState._priceGreen,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (compact) ...[
+              Text(
+                product.name,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle,
+              ),
+              const SizedBox(height: DesignTokens.spaceSm),
+              priceBlock,
+            ] else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      product.name,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
+                    ),
+                  ),
+                  const SizedBox(width: DesignTokens.spaceMd),
+                  priceBlock,
+                ],
+              ),
+          ],
+        );
+      },
     );
   }
 }

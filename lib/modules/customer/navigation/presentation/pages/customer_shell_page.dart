@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
+import 'dart:async';
 
 import '../../../../../bloc/cart/index.dart';
 import '../../../../../core/constants/app_strings.dart';
@@ -25,6 +26,9 @@ class CustomerShellPage extends StatefulWidget {
 }
 
 class _CustomerShellPageState extends State<CustomerShellPage> {
+  StreamSubscription<bool>? _connectivitySub;
+  bool _lastOnline = true;
+
   List<BhoomiseBottomNavItem> _navItems(int cartUnits) {
     final bagBadge = cartUnits > 0 ? cartUnits : null;
     return [
@@ -51,7 +55,28 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
   @override
   void initState() {
     super.initState();
+    final connectivity = Get.find<ConnectivitySyncService>();
+    _lastOnline = connectivity.isOnline.value;
+    _connectivitySub = connectivity.isOnline.stream.listen(_onConnectivityChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncTabFromRouteArguments());
+  }
+
+  void _onConnectivityChanged(bool online) {
+    if (!mounted || online == _lastOnline) return;
+    _lastOnline = online;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          online ? 'Back online. Sync resumed.' : 'You are offline. Using local data.',
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: online ? const Color(0xFF166534) : const Color(0xFF9A3412),
+        duration: Duration(seconds: online ? 2 : 3),
+      ),
+    );
   }
 
   void _syncTabFromRouteArguments() {
@@ -74,8 +99,11 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
     return Scaffold(
       body: Column(
         children: [
-          Obx(() {
-            final online = Get.find<ConnectivitySyncService>().isOnline.value;
+          StreamBuilder<bool>(
+            stream: Get.find<ConnectivitySyncService>().isOnline.stream,
+            initialData: Get.find<ConnectivitySyncService>().isOnline.value,
+            builder: (context, snapshot) {
+            final online = snapshot.data ?? true;
             if (online) return const SizedBox.shrink();
             return Material(
               color: DesignTokens.figmaHeaderFrostTint,
@@ -116,9 +144,11 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
             );
           }),
           Expanded(
-            child: Obx(
-              () => IndexedStack(
-                index: shell.tabIndex.value,
+            child: StreamBuilder<int>(
+              stream: shell.tabIndex.stream,
+              initialData: shell.tabIndex.value,
+              builder: (context, snapshot) => IndexedStack(
+                index: snapshot.data ?? 0,
                 children: const [
                   HomePage(),
                   ProductCatalogPage(),
@@ -133,9 +163,12 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
       bottomNavigationBar: BlocSelector<CartBloc, CartBlocState, int>(
         selector: (state) => state.totalItemQuantity,
         builder: (context, units) {
-          return Obx(() {
+          return StreamBuilder<int>(
+            stream: shell.tabIndex.stream,
+            initialData: shell.tabIndex.value,
+            builder: (context, snapshot) {
             return BhoomiseRoleBottomNav(
-              currentIndex: shell.tabIndex.value,
+              currentIndex: snapshot.data ?? 0,
               onTap: (i) {
                 shell.setTab(i);
                 if (i == 2) {
@@ -147,6 +180,67 @@ class _CustomerShellPageState extends State<CustomerShellPage> {
           });
         },
       ),
+      floatingActionButton: BlocSelector<CartBloc, CartBlocState, int>(
+        selector: (state) => state.totalItemQuantity,
+        builder: (context, units) {
+          return StreamBuilder<int>(
+            stream: shell.tabIndex.stream,
+            initialData: shell.tabIndex.value,
+            builder: (context, snapshot) {
+            // Show floating cart only on Home tab.
+            if ((snapshot.data ?? 0) != 0) return const SizedBox.shrink();
+            return FloatingActionButton(
+              heroTag: 'customer_shell_cart_fab',
+              onPressed: () {
+                shell.setTab(2);
+                context.read<CartBloc>().add(const CartLoadRequested());
+              },
+              backgroundColor: const Color(0xFF00873A),
+              foregroundColor: Colors.white,
+              elevation: 8,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.shopping_cart_checkout_rounded),
+                  if (units > 0)
+                    Positioned(
+                      top: -6,
+                      right: -10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 18),
+                        child: Text(
+                          units > 99 ? '99+' : '$units',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          });
+        },
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
   }
 }

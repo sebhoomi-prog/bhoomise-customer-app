@@ -45,7 +45,6 @@ class CustomerFreshArrivalsBlock extends StatelessWidget {
       }
       return LayoutBuilder(
         builder: (context, constraints) {
-          final maxW = constraints.maxWidth;
           return GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -60,7 +59,6 @@ class CustomerFreshArrivalsBlock extends StatelessWidget {
               return CustomerArrivalProductCard(
                 product: items[index],
                 gridIndex: index,
-                maxCrossAxisExtent: maxW,
               );
             },
           );
@@ -75,12 +73,10 @@ class CustomerArrivalProductCard extends StatelessWidget {
     super.key,
     required this.product,
     required this.gridIndex,
-    required this.maxCrossAxisExtent,
   });
 
   final Product product;
   final int gridIndex;
-  final double maxCrossAxisExtent;
 
   static const _surface = Color(0xFFEFF4FF);
   static const _titleInk = Color(0xFF0F172A);
@@ -114,9 +110,6 @@ class CustomerArrivalProductCard extends StatelessWidget {
     final listMinor = _derivedListMinor(v);
     final pct = _percentOff(listMinor, v.priceMinor);
     final showStrike = pct >= 5;
-
-    final cellW =
-        (maxCrossAxisExtent - CustomerFreshArrivalsBlock._gridGap) / 2;
 
     return Material(
       color: Colors.white,
@@ -235,53 +228,72 @@ class CustomerArrivalProductCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              SizedBox(
-                height: showStrike ? 38 : 32,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (showStrike)
-                            Text(
-                              formatInrMinor(listMinor),
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                height: 15 / 10,
-                                fontWeight: FontWeight.w400,
-                                decoration: TextDecoration.lineThrough,
-                                color: _strike,
-                              ),
-                            ),
-                          Text(
-                            formatInrMinor(v.priceMinor),
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              height: 20 / 14,
-                              fontWeight: FontWeight.w700,
-                              color: _titleInk,
-                            ),
+              LayoutBuilder(
+                builder: (context, footer) {
+                  final narrowFooter = footer.maxWidth < 130;
+                  final priceColumn = Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (showStrike)
+                        Text(
+                          formatInrMinor(listMinor),
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            height: 15 / 10,
+                            fontWeight: FontWeight.w400,
+                            decoration: TextDecoration.lineThrough,
+                            color: _strike,
                           ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      width: (cellW - 24) * 0.42,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: CartQtyStepper(
-                          product: product,
-                          variant: v,
-                          dense: true,
-                          outlinedZeroAdd: true,
+                        ),
+                      Text(
+                        formatInrMinor(v.priceMinor),
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          height: 20 / 14,
+                          fontWeight: FontWeight.w700,
+                          color: _titleInk,
                         ),
                       ),
+                    ],
+                  );
+
+                  final stepper = CartQtyStepper(
+                    product: product,
+                    variant: v,
+                    dense: true,
+                    compact: true,
+                    outlinedZeroAdd: true,
+                  );
+
+                  if (narrowFooter) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        priceColumn,
+                        const SizedBox(height: 6),
+                        Align(alignment: Alignment.centerRight, child: stepper),
+                      ],
+                    );
+                  }
+
+                  return SizedBox(
+                    height: showStrike ? 38 : 32,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(child: priceColumn),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: stepper,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ],
           ),

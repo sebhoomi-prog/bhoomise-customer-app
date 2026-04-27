@@ -16,6 +16,7 @@ class CartQtyStepper extends StatelessWidget {
     required this.product,
     required this.variant,
     this.dense = false,
+    this.compact = false,
     this.showActionFeedback = true,
     /// Blinkit-style home grid: green outline **ADD** when qty is 0.
     this.outlinedZeroAdd = false,
@@ -24,13 +25,14 @@ class CartQtyStepper extends StatelessWidget {
   final Product product;
   final ProductVariant variant;
   final bool dense;
+  final bool compact;
 
   /// Floating snackbar + haptics when adding or changing qty (home, search, PDP).
   final bool showActionFeedback;
   final bool outlinedZeroAdd;
 
-  double get _h => dense ? 36 : 40;
-  double get _segment => dense ? 36 : 40;
+  double get _h => compact ? 30 : (dense ? 36 : 40);
+  double get _segment => compact ? 24 : (dense ? 36 : 40);
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +72,7 @@ class CartQtyStepper extends StatelessWidget {
         }
 
         const kBlinkitGreen = Color(0xFF006B2C);
-        final h = outlinedZeroAdd ? 30.0 : _h;
+        final h = outlinedZeroAdd ? (compact ? 28.0 : 30.0) : _h;
 
         if (outlinedZeroAdd) {
           return SizedBox(
@@ -80,9 +82,11 @@ class CartQtyStepper extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: kBlinkitGreen,
                 side: const BorderSide(color: kBlinkitGreen, width: 1),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                minimumSize: const Size(60, 30),
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 12 : 16,
+                  vertical: compact ? 4 : 6,
+                ),
+                minimumSize: Size(compact ? 52 : 60, h),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(32),
@@ -91,9 +95,9 @@ class CartQtyStepper extends StatelessWidget {
               child: Text(
                 'ADD',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: compact ? 11 : 12,
                   fontWeight: FontWeight.w700,
-                  height: 16 / 12,
+                  height: compact ? (14 / 11) : (16 / 12),
                   color: disabled
                       ? scheme.onSurface.withValues(alpha: 0.38)
                       : kBlinkitGreen,
@@ -112,7 +116,7 @@ class CartQtyStepper extends StatelessWidget {
               maximumSize: Size(double.infinity, _h),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               padding: EdgeInsets.symmetric(
-                horizontal: dense ? 14 : 16,
+                horizontal: compact ? 10 : (dense ? 14 : 16),
                 vertical: 0,
               ),
               shape: RoundedRectangleBorder(
@@ -124,7 +128,7 @@ class CartQtyStepper extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: dense ? 11.5 : 13,
+                  fontSize: compact ? 11 : (dense ? 11.5 : 13),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -182,16 +186,16 @@ class CartQtyStepper extends StatelessWidget {
                 },
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: EdgeInsets.symmetric(horizontal: compact ? 3 : 6),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 22),
+                    constraints: BoxConstraints(minWidth: compact ? 16 : 22),
                     child: Text(
                       '$qty',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: dense ? 14 : 15,
+                        fontSize: compact ? 12 : (dense ? 14 : 15),
                         height: 1,
                         color: scheme.onSurface,
                       ),

@@ -48,8 +48,11 @@ class CustomerHomeFigmaHeader extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: Obx(() {
-                        final loading = loc.isLocating.value;
+                      child: StreamBuilder<bool>(
+                        stream: loc.isLocating.stream,
+                        initialData: loc.isLocating.value,
+                        builder: (context, snapshot) {
+                        final loading = snapshot.data ?? false;
                         return loading
                             ? SizedBox(
                                 width: 18,
@@ -76,9 +79,16 @@ class CustomerHomeFigmaHeader extends StatelessWidget {
                             AppStrings.deliverToLabel,
                             style: FigmaTypography.customerDeliverLabel(),
                           ),
-                          Obx(() {
-                            final p = loc.primaryLine.value;
-                            final s = loc.secondaryLine.value;
+                          StreamBuilder<String>(
+                            stream: loc.primaryLine.stream,
+                            initialData: loc.primaryLine.value,
+                            builder: (context, pSnapshot) {
+                            final p = pSnapshot.data ?? '';
+                            return StreamBuilder<String>(
+                              stream: loc.secondaryLine.stream,
+                              initialData: loc.secondaryLine.value,
+                              builder: (context, sSnapshot) {
+                            final s = sSnapshot.data ?? '';
                             final title = p.isEmpty
                                 ? AppStrings.deliverToFallbackArea
                                 : p;
@@ -109,6 +119,7 @@ class CustomerHomeFigmaHeader extends StatelessWidget {
                                 ),
                               ],
                             );
+                          });
                           }),
                         ],
                       ),

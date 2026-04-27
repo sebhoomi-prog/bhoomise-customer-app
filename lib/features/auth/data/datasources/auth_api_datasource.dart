@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/api/api_client.dart';
 import '../../../../core/api/api_endpoints.dart';
 import '../../../../core/api/api_error_mapper.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/session/app_session_service.dart';
 import '../../domain/auth_exception.dart';
 import '../models/auth_api_models.dart';
@@ -52,8 +53,9 @@ class AuthApiDataSource implements AuthRemoteDataSource {
   @override
   Future<void> requestPhoneVerification(String phoneE164) async {
     try {
-      final response = await _apiClient.post(
+      final response = await _postWithLegacyFallback(
         ApiEndpoints.sendOtp,
+        AppConstants.authSendOtpLegacy,
         data: SendOtpRequestModel(phone: phoneE164).toJson(),
       );
       await _prefs.setString(_kPendingPhone, phoneE164);
@@ -84,8 +86,9 @@ class AuthApiDataSource implements AuthRemoteDataSource {
     const role = 'customer';
     late final dynamic response;
     try {
-      response = await _apiClient.post(
+      response = await _postWithLegacyFallback(
         ApiEndpoints.verifyOtp,
+        AppConstants.authVerifyOtpLegacy,
         data: VerifyOtpRequestModel(
           phone: phone,
           otp: smsCode.trim(),
@@ -136,6 +139,18 @@ class AuthApiDataSource implements AuthRemoteDataSource {
     }
     final phone = _prefs.getString(_kUserPhone);
     return AuthUserModel(uid: uid, phoneNumber: phone);
+  }
+
+  Future<dynamic> _postWithLegacyFallback(
+    String primaryPath,
+    String legacyPath, {
+    Object? data,
+  }) async {
+    try {
+      return await _apiClient.post(primaryPath, data: data);
+    } on Object {
+      return _apiClient.post(legacyPath, data: data);
+    }
   }
 
 }

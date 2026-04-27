@@ -9,9 +9,22 @@ class ProductApiDataSource implements ProductRemoteDataSource {
 
   final ApiClient _apiClient;
 
+  static const _singleApiPrefixProductsPath = '/api/products';
+
   @override
   Future<List<ProductModel>> fetchProducts() async {
-    final response = await _apiClient.get(ApiEndpoints.products);
-    return ProductListResponseModel.fromApi(response.data).items;
+    try {
+      final response = await _apiClient.get(
+        ApiEndpoints.products,
+        requestTimeout: const Duration(seconds: 6),
+      );
+      return ProductListResponseModel.fromApi(response.data).items;
+    } on Object {
+      final legacyResponse = await _apiClient.get(
+        _singleApiPrefixProductsPath,
+        requestTimeout: const Duration(seconds: 6),
+      );
+      return ProductListResponseModel.fromApi(legacyResponse.data).items;
+    }
   }
 }

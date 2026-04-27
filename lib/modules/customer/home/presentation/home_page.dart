@@ -1,9 +1,11 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 
 import '../../../../app/routes/app_routes.dart';
+import '../../../../bloc/product/index.dart';
 import '../../navigation/customer_shell_navigation.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/theme/design_tokens.dart';
@@ -18,6 +20,11 @@ import 'widgets/figma/customer_search_pill.dart';
 /// Customer **Home** tab — Figma Customer Home (`9:3`) + frosted header (CSS export).
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
+
+  void _openSearchAndRefreshProducts(BuildContext context) {
+    CustomerShellNavigation.goSearch();
+    context.read<ProductBloc>().add(const ProductRefreshRequested());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +52,7 @@ class HomePage extends StatelessWidget {
                 ),
                 sliver: SliverToBoxAdapter(
                   child: CustomerSearchPill(
-                    onTap: CustomerSearchPill.openCatalog(),
+                    onTap: () => _openSearchAndRefreshProducts(context),
                   ),
                 ),
               ),
@@ -88,10 +95,6 @@ class HomePage extends StatelessWidget {
               const SliverToBoxAdapter(
                 child: SizedBox(height: DesignTokens.spaceLg),
               ),
-              const SliverToBoxAdapter(child: CustomerHeroCarousel()),
-              const SliverToBoxAdapter(
-                child: SizedBox(height: DesignTokens.spaceLg),
-              ),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: DesignTokens.spaceLg,
@@ -116,7 +119,7 @@ class HomePage extends StatelessWidget {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           padding: const EdgeInsets.only(left: 8),
                         ),
-                        onPressed: () => CustomerShellNavigation.goSearch(),
+                        onPressed: () => _openSearchAndRefreshProducts(context),
                         child: Text(
                           AppStrings.homeCategoriesViewAll,
                           style: FigmaTypography.customerViewAllLink(),
@@ -160,7 +163,7 @@ class HomePage extends StatelessWidget {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           padding: const EdgeInsets.only(left: 8),
                         ),
-                        onPressed: () => CustomerShellNavigation.goSearch(),
+                        onPressed: () => _openSearchAndRefreshProducts(context),
                         child: Text(
                           AppStrings.homeFreshHarvestSeeAll,
                           style: FigmaTypography.customerViewAllLink(),
@@ -182,6 +185,17 @@ class HomePage extends StatelessWidget {
                 ),
                 sliver: const SliverToBoxAdapter(
                   child: CustomerFreshArrivalsBlock(),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  DesignTokens.spaceLg,
+                  0,
+                  DesignTokens.spaceLg,
+                  DesignTokens.spaceLg,
+                ),
+                sliver: const SliverToBoxAdapter(
+                  child: CustomerHeroCarousel(),
                 ),
               ),
               SliverPadding(

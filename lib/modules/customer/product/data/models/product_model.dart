@@ -1,3 +1,4 @@
+import '../../../../../core/util/product_image_url.dart';
 import '../../domain/entities/product.dart';
 import 'product_variant_model.dart';
 
@@ -15,10 +16,13 @@ class ProductModel extends Product {
         .map((e) => ProductVariantModel.fromJson(e as Map<String, dynamic>))
         .toList();
     return ProductModel(
-      id: json['id'].toString(),
-      name: json['name'] as String,
+      id: (json['id'] ?? json['product_id'] ?? '').toString(),
+      name: (json['name'] ?? json['product_name'] ?? json['display_name'] ?? '')
+          .toString(),
       description: json['description'] as String?,
-      imageUrl: json['image_url'] as String? ?? json['hero_image_url'] as String?,
+      imageUrl: sanitizeProductImageUrl(
+        json['image_url'] as String? ?? json['hero_image_url'] as String?,
+      ),
       variants: variants,
     );
   }
